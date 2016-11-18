@@ -1,0 +1,24 @@
+#!/bin/bash
+#################################################################
+#                                                               #
+# Zu allen konfigurierten Rechnern SSH-Verbindungen herstellen. #
+# Seit 10.10.2013 kann auch direkt ein Befehl angegeben werden. #
+# Seit 15.06.2015 werden Accounts mit einem Slash ignoriert.    #
+#                                                               #
+#################################################################
+
+for i in $(egrep '^Host' ~/.ssh/config | sed 's/^Host //' | grep -v '/')
+do
+	read -p "» Nächster Host: ${i} – verbinden [J/n]? " -n 1
+	if [[ "${REPLY}" =~ ^[JjYy]$ ]]
+	then
+		if [[ "$1" != "" ]]
+		then
+			echo; ssh "${i}" -- "$1"
+		else
+			echo; ssh "${i}"
+		fi
+	else
+		echo
+	fi
+done
