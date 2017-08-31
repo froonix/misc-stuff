@@ -39,11 +39,6 @@ if [ "${ROUTINES}" = "yes" ]
 then OPT="${OPT} --routines"
 fi
 
-if [ "$CREATE_DATABASE" = "no" ]
-then OPT="$OPT --no-create-db"
-else OPT="$OPT --databases"
-fi
-
 LANG=C
 BACKUPFILES=
 DATE=`date +%Y-%m-%d_%Hh%Mm`
