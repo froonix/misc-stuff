@@ -35,10 +35,6 @@ if [ ! -e "$BACKUPDIR" ]
 then echo "Invalid BACKUPDIR: $BACKUPDIR" 1>&2; exit 1
 fi
 
-if [ "${ROUTINES}" = "yes" ]
-then OPT="${OPT} --routines"
-fi
-
 LANG=C
 BACKUPFILES=
 DATE=`date +%Y-%m-%d_%Hh%Mm`
@@ -52,6 +48,10 @@ PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/mysql/bin
 LOGFILE="$BACKUPDIR/`date +%s`.log"
 LOGERR="$BACKUPDIR/`date +%s`.err"
 OPT="--quote-names --events"
+
+if [ "${ROUTINES}" = "yes" ]
+then OPT="${OPT} --routines"
+fi
 
 chmod o-x "${BACKUPDIR}"; chmod o-r "${BACKUPDIR}"
 if [ ! -e "$BACKUPDIR/daily" ]; then mkdir -p "$BACKUPDIR/daily"; fi
