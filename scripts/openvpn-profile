@@ -1,0 +1,57 @@
+#!/bin/bash
+set -euf -o pipefail
+
+###
+# Quick script to generate an profile.ovpn file for Android or NetworkManager.
+# Mostly inspired by: https://gist.github.com/trovao/18e428b5a758df24455b
+#
+# v1.0.0 (2016-06-23) by killerbees19
+###
+
+X509_DIR=~/ca/keys/vpn
+TA_KEY="${X509_DIR}/ta.key"
+
+commonname="${1?Please enter the CN (CommonName) of the user!}"
+basefile="${X509_DIR}/$(basename "${commonname}")"
+cafile="${X509_DIR}/ca.crt"
+
+if [[ ! -f "${cafile}"  ]]; then echo "CA cert file ${cafile} not found!" 1>&2; exit 1; fi
+if [[ ! -f "${TA_KEY}"  ]]; then echo "TLS-Auth file ${TA_KEY} not found!" 1>&2; exit 1; fi
+if [[ ! -f "${basefile}.key" || ! -f "${basefile}.crt" ]]; then echo "${basefile} files not found!" 1>&2; exit 1; fi
+
+cat << EOF
+client
+nobind
+
+proto tcp-client
+remote example.net 443
+resolv-retry infinite
+comp-lzo adaptive
+
+dev-type tun
+tun-mtu 1400
+
+persist-key
+persist-tun
+
+redirect-gateway autolocal
+remote-cert-tls server
+key-direction 1
+EOF
+
+echo
+echo '<ca>'
+cat      "${cafile}"
+echo '</ca>'
+echo
+echo '<cert>'
+awk      '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' "${basefile}.crt"
+echo '</cert>'
+echo
+echo '<key>'
+cat      "${basefile}.key"
+echo '</key>'
+echo
+echo '<tls-auth>'
+cat      "${TA_KEY}"
+echo '</tls-auth>'
