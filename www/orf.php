@@ -55,7 +55,7 @@ $cache = sprintf('%s/orf-%s.m3u8', sys_get_temp_dir(), md5($channel));
 
 if(!file_exists($cache) || ($m = filemtime($cache)) < (time() - CACHE_TIMEOUT) || !($s = filesize($cache)))
 {
-	$m3u8 = ['#EXTM3U'];
+	$m3u8 = [];
 	foreach(['Q1A', 'Q4A', 'Q6A', 'Q8C'] as $quality)
 	{
 		if(($result = file_get_contents(sprintf('http://apasfiisl.apa.at/ipad/%s_%s/orf.sdp/playlist.m3u8', rawurlencode($channel), rawurlencode($quality)))) === false)
@@ -83,10 +83,14 @@ if(!file_exists($cache) || ($m = filemtime($cache)) < (time() - CACHE_TIMEOUT) |
 		}
 	}
 
-	if(count($m3u8) <= 1)
+	if(!count($m3u8))
 	{
 		throw new Exception();
 	}
+
+	array_unshift($m3u8, '#EXT-X-VERSION:3');
+	array_unshift($m3u8, '#EXT-X-ALLOW-CACHE:NO');
+	array_unshift($m3u8, '#EXTM3U');
 
 	$_ = implode("\n", $m3u8) . "\n";
 	file_put_contents($cache, $_, LOCK_EX);
@@ -101,7 +105,7 @@ if(!file_exists($cache) || ($m = filemtime($cache)) < (time() - CACHE_TIMEOUT) |
 	}
 }
 
-header('Content-Type: application/vnd.apple.mpegurl');
+header('Content-Type: application/vnd.apple.mpegurl; charset=utf-8');
 header(sprintf('Last-Modified: %s GMT', gmdate('D, d M Y H:i:s', $m)));
 header(sprintf('Content-Length: %u', $s));
 readfile($cache);
