@@ -1,0 +1,27 @@
+#!/bin/bash
+########################################################################
+#                                                                      #
+# Upload Let's Encrypt certificate to HP LaserJet Pro MFP M227fdw.     #
+# v1.0.0 (2018-02-21) by Christian Schrötter <cs@fnx.li>               #
+#                                                                      #
+# Note: "getssl" required! This script is the RELOAD_CMD for getssl.   #
+#       Tested with getssl v1.83 at Debian 9.3 - firmware 20160908.    #
+#                                                                      #
+########################################################################
+
+set -euf -o pipefail
+cd ~
+
+FQDN="hp-laserjet-example.local"
+URL="https://user:password@$FQDN"
+SSLDIR="./.getssl/$FQDN"
+
+PFXFILE=`mktemp`
+PFXPASS="dummy"
+
+curl --silent --insecure -F "upFile=@$SSLDIR/chain.crt" "$URL/hp/device/CertificateCA.pem"
+openssl pkcs12 -export -out "$PFXFILE" -inkey "$SSLDIR/$FQDN.key" -in "$SSLDIR/$FQDN.crt" -passout "pass:$PFXPASS"
+curl --silent --insecure -F "FileName=@$PFXFILE" -F "Password=$PFXPASS" "$URL/hp/device/Certificate.pfx"
+
+#-F "Export=Export"
+rm -f "$PFXFILE"
