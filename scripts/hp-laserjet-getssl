@@ -1,7 +1,7 @@
 #!/bin/bash
 ########################################################################
 #                                                                      #
-# Upload Let's Encrypt certificate to HP LaserJet Pro MFP M227fdw.     #
+# Upload Let's Encrypt certificate to HP LaserJet Pro MFP M227fdw      #
 # v1.0.0 (2018-02-21) by Christian Schrötter <cs@fnx.li>               #
 #                                                                      #
 # Note: "getssl" required! This script is the RELOAD_CMD for getssl.   #
