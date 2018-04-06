@@ -56,9 +56,12 @@ $cache = sprintf('%s/orf-%s.m3u8', sys_get_temp_dir(), md5($channel));
 if(!file_exists($cache) || ($m = filemtime($cache)) < (time() - CACHE_TIMEOUT) || !($s = filesize($cache)))
 {
 	$m3u8 = [];
-	foreach(['Q1A', 'Q4A', 'Q6A', 'Q8C'] as $quality)
+	foreach(['q1a', 'q4a', 'q6a', 'q8c'] as $quality) // qxb
 	{
-		if(($result = file_get_contents(sprintf('http://apasfiisl.apa.at/ipad/%s_%s/orf.sdp/playlist.m3u8', rawurlencode($channel), rawurlencode($quality)))) === false)
+		$host = preg_match('/^orf2.+/', $channel) ? '%1$s.orf.cdn.ors.at' : '%1$s.orfstg.cdn.ors.at';
+		$base = sprintf('http://' . $host . '/out/u/%1$s/%2$s/', rawurlencode($channel), rawurlencode($quality));
+
+		if(($result = file_get_contents($base . 'manifest.m3u8')) === false)
 		{
 			throw new Exception($quality);
 		}
@@ -75,6 +78,11 @@ if(!file_exists($cache) || ($m = filemtime($cache)) < (time() - CACHE_TIMEOUT) |
 				if(empty($lines[++$i]))
 				{
 					throw new Exception($i);
+				}
+
+				if(strpos($lines[$i], '://') === false)
+				{
+					$lines[$i] = $base . $lines[$i];
 				}
 
 				$m3u8[] = $line;
