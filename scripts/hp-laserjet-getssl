@@ -13,7 +13,7 @@ set -euf -o pipefail
 cd ~
 
 FQDN="hp-laserjet-example.local"
-URL="https://user:password@$FQDN"
+URL="https://admin:password@$FQDN"
 SSLDIR="./.getssl/$FQDN"
 
 PFXFILE=`mktemp`
