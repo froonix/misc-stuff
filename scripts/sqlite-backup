@@ -1,0 +1,18 @@
+#!/bin/bash
+# Backup SQLite DB's
+set -eu -o pipefail
+shopt -s failglob
+
+PRUNE=365
+DST="/var/lib/sqlitebackups"
+SRC="/var/lib/phpliteadmin/*.db"
+
+for db in $SRC
+do
+	date=`date +%Y%m%d-%H%M%S`
+	file=`basename "$db" | cut -d . -f 1`
+	sqlite3 "$db" ".backup '$DST/${file}_${date}.db'"
+	xz -9 "$DST/${file}_${date}.db"
+done
+
+find "$DST" -type f -name '*_*-*.db.*' -mtime "+$PRUNE" -delete -print
