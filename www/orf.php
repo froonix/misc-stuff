@@ -58,8 +58,8 @@ if(!file_exists($cache) || ($m = filemtime($cache)) < (time() - CACHE_TIMEOUT) |
 	$m3u8 = [];
 	foreach(['q1a', 'q4a', 'q6a', 'q8c'] as $quality) // qxb
 	{
-		$host = preg_match('/^orf2.+/', $channel) ? '%1$s.orf.cdn.ors.at' : '%1$s.orfstg.cdn.ors.at';
-		$base = sprintf('http://' . $host . '/out/u/%1$s/%2$s/', rawurlencode($channel), rawurlencode($quality));
+		$host = ($channel === 'orfs') ? 'https://%1$s.mdn.ors.at' : 'http://%1$s.cdn.ors.at';
+		$base = sprintf($host . '/out/u/%1$s/%2$s/', rawurlencode($channel), rawurlencode($quality));
 
 		if(($result = file_get_contents($base . 'manifest.m3u8')) === false)
 		{
