@@ -150,6 +150,7 @@ function exception_error_handler($severity, $message, $file, $line)
 set_error_handler('exception_error_handler');
 error_reporting(-1); ini_set('display_errors', 1);
 
+$glt     = false;
 $error   = null;
 $matches = null;
 $episode = null;
@@ -181,13 +182,33 @@ try
 			$result = [];
 			foreach($results as $key => $value)
 			{
+				if(!empty($value['title']))
+				{
+					$title = $value['title'];
+
+					if(!empty($value['teaser_title']))
+					{
+						$title .= ' - ' . $value['teaser_title'];
+					}
+
+					if(!empty($value['date']))
+					{
+						$_ = strtotime($value['date']);
+						$title .= sprintf(' (vom %s um %s Uhr)', date('d.m.Y', $_), date('H:i', $_));
+					}
+				}
+				else
+				{
+					$title = $value['share_subject'];
+				}
+
 				$result[] = [
 					'duration'    => isset($value['duration'])      ? $value['duration']                : null,
-					'datetime'    => isset($value['episode_date'])  ? strtotime($value['episode_date']) : null,
+					'datetime'    => isset($value['date'])          ? strtotime($value['date'])         : null,
 					'killdate'    => isset($value['killdate'])      ? strtotime($value['killdate'])     : null,
 					'description' => isset($value['description'])   ? $value['description']             : null,
-					'title'       => isset($value['share_subject']) ? $value['share_subject']           : null,
 					'link'        => isset($value['id'])            ? sprintf('?url=%u', $value['id'])  : null,
+					'title'       => $title,
 					'selection'   => true,
 				];
 			}
@@ -230,16 +251,31 @@ try
 
 			if(count($progressive) || count($subtitles))
 			{
+				if(!empty($gapless['title']))
+				{
+					$title = $gapless['title'];
+
+					if(!empty($gapless['teaser_title']))
+					{
+						$title .= ' - ' . $gapless['teaser_title'];
+					}
+				}
+				else
+				{
+					$title = $gapless['share_subject'];
+				}
+
+				$glt = true;
 				$result[] = [
 					'duration'         => isset($gapless['duration'])      ? $gapless['duration']                : null,
-					'datetime'         => isset($gapless['episode_date'])  ? strtotime($gapless['episode_date']) : null,
+					'datetime'         => isset($gapless['date'])          ? strtotime($gapless['date'])         : null,
 					'killdate'         => isset($gapless['killdate'])      ? strtotime($gapless['killdate'])     : null,
 					'description'      => isset($gapless['description'])   ? $gapless['description']             : null,
-					'title'            => isset($gapless['share_subject']) ? $gapless['share_subject']           : null,
 					'link'             => isset($gapless['share_body'])    ? $gapless['share_body']              : null,
 					'youth_protection' => $youth_protection,
 					'progressive'      => $progressive,
 					'subtitles'        => $subtitles,
+					'title'            => $title,
 					'gapless'          => true,
 				];
 			}
@@ -271,16 +307,35 @@ try
 				}
 			}
 
+			if(!empty($value['title']))
+			{
+				$title = $value['title'];
+
+				if(!empty($value['teaser_title']))
+				{
+					$title .= sprintf(' - %s', $value['teaser_title']);
+				}
+
+				if(!$glt && !empty($value['_embedded']['profile']['title']) && $value['_embedded']['profile']['title'] !== $value['title'])
+				{
+					$title = sprintf('%s: %s', $value['_embedded']['profile']['title'], $title);
+				}
+			}
+			else
+			{
+				$title = $value['share_subject'];
+			}
+
 			$result[] = [
 				'duration'         => isset($value['duration'])      ? $value['duration']                : null,
 				'datetime'         => isset($value['episode_date'])  ? strtotime($value['episode_date']) : null,
 				'killdate'         => isset($value['killdate'])      ? strtotime($value['killdate'])     : null,
 				'description'      => isset($value['description'])   ? $value['description']             : null,
-				'title'            => isset($value['share_subject']) ? $value['share_subject']           : null,
 				'link'             => isset($value['share_body'])    ? $value['share_body']              : null,
 				'youth_protection' => $youth_protection,
 				'progressive'      => $progressive,
 				'subtitles'        => $subtitles,
+				'title'            => $title,
 			];
 		}
 	}
@@ -477,7 +532,8 @@ foreach($result as $item)
 
 ?>
 					<br /><br />
-					<p>Dauer: <?php echo $item['duration'] ? sprintf('<b>%s</b>', gmdate('H:i:s', $item['duration'] / 1000)) : ''; ?></p>
+					<p>Dauer: <?php echo $item['duration'] ? sprintf('<b>%s</b>', gmdate('H:i:s', $item['duration'] / 1000)) : '-'; ?></p>
+					<?php if(!$glt || (isset($item['gapless']) && $item['gapless'])) { ?><p>Datum: <?php echo $item['datetime'] ? sprintf('%s', date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } ?>
 					<?php echo $item['youth_protection'] ? sprintf('<p>Jugendschutz: <span class="youth_protection">%s</span></p>', htmlentities($item['youth_protection'])) : ''; ?>
 					<p>Untertitel: <?php echo implode(' &bull; ', $subtitles); ?></p>
 					<p>Videodatei: <?php echo  implode(' &bull; ', $progressive); ?></p>
@@ -504,7 +560,7 @@ if(count($files) > 1)
 					<br /><br />Direkter Downloads mittels Bash und Wget:<br /><br />
 					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()">tvthek=( "<?php echo implode('" "', $files); ?>" ); for key in ${!tvthek[@]}; do wget -q --show-progress -O "$(printf %02d "$(( $key + 1 ))").mp4" "${tvthek[$key]}" || break; done</textarea>
 					<script> var i = document.getElementById('console'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
-					<br /><br /><i>Als bessere Alternative gibt es das sogenannte Gapless-Video. Sofern verfügbar, siehe erster (grüner) Eintrag.</i>
+					<?php if($glt) { ?><br /><br /><i>Als bessere Alternative gibt es das sogenannte Gapless-Video, siehe erster (grüner) Eintrag.</i><?php } ?>
 				</li>
 <?php
 
