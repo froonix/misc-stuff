@@ -186,7 +186,7 @@ try
 				{
 					$title = $value['title'];
 
-					if(!empty($value['teaser_title']))
+					if(!empty($value['teaser_title']) && strpos($value['title'], $value['teaser_title']) === false)
 					{
 						$title .= ' - ' . $value['teaser_title'];
 					}
@@ -255,7 +255,7 @@ try
 				{
 					$title = $gapless['title'];
 
-					if(!empty($gapless['teaser_title']))
+					if(!empty($gapless['teaser_title']) && strpos($gapless['title'], $gapless['teaser_title']) === false)
 					{
 						$title .= ' - ' . $gapless['teaser_title'];
 					}
@@ -311,12 +311,12 @@ try
 			{
 				$title = $value['title'];
 
-				if(!empty($value['teaser_title']))
+				if(!empty($value['teaser_title']) && strpos($value['title'], $value['teaser_title']) === false)
 				{
 					$title .= sprintf(' - %s', $value['teaser_title']);
 				}
 
-				if(!$glt && !empty($value['_embedded']['profile']['title']) && $value['_embedded']['profile']['title'] !== $value['title'])
+				if(!$glt && !empty($value['_embedded']['profile']['title']) && strpos($value['title'], $value['_embedded']['profile']['title']) === false)
 				{
 					$title = sprintf('%s: %s', $value['_embedded']['profile']['title'], $title);
 				}
