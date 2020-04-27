@@ -162,6 +162,8 @@ try
 	if(isset($_GET['url']))
 	{
 		$url = (string) $_GET['url'];
+		$url = str_replace('/topic/', '/profile/', $url);
+		$url = str_replace('/history/', '/profile/', $url);
 
 		if(is_numeric($url))
 		{
