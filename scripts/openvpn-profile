@@ -26,7 +26,6 @@ nobind
 proto tcp-client
 remote example.net 443
 resolv-retry infinite
-comp-lzo adaptive
 
 dev-type tun
 tun-mtu 1400
@@ -37,6 +36,10 @@ persist-tun
 redirect-gateway autolocal
 remote-cert-tls server
 key-direction 1
+
+auth SHA512
+tls-version-min 1.2
+cipher AES-256-CBC
 EOF
 
 echo
