@@ -1,0 +1,47 @@
+#!/bin/bash
+set -euf -o pipefail
+
+function stderr()
+{
+	echo "$*" 1>&2
+}
+
+if [[ "$#" -lt 2 ]]
+then
+	stderr "Usage: $(basename "$0") <HOST> <DIR> [--run]"
+	stderr
+	stderr "Cleanup <DIR> at SSH <HOST> via rsync."
+	stderr "Must faster than SFTP or FTPS clients."
+	stderr
+	stderr "Change ~/.ssh/config for custom SSH options!"
+	exit 1
+fi
+
+host="$1"
+dir="$2"
+run="${3:--dry}"
+dirname="$(dirname "$dir")"
+basedir="$(basename "$dir")"
+
+if [[ "$host" == "" || "$dir" == "" || "$dirname" == "" || "$dirname" == "/" || "$basedir" == "" || "$basedir" == "/" ]]
+then
+	stderr "Error: Invalid directory! Please check your arguments."
+	exit 1
+fi
+
+if [[ "$run" != "--run" ]]
+then
+	args="--dry-run --verbose"
+else
+	args="--stats"
+fi
+
+tmpdir="$(mktemp -d)"
+mkdir "$tmpdir/$basedir"
+
+cd "$tmpdir"
+rsync --recursive --delete-before --ignore-existing --ignore-non-existing --one-file-system $args "./$basedir" "$host:$dirname"
+rmdir "$tmpdir/$basedir" "$tmpdir"
+
+# TODO: Implement exclude/include args?
+# ...
