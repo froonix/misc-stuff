@@ -1,9 +1,22 @@
 #!/bin/bash
-set -euf -o pipefail
+set -eEuf -o pipefail
 
 function stderr()
 {
 	echo "$*" 1>&2
+}
+
+function cleanup()
+{
+	if [[ -e "$tmpdir/$basedir" ]]
+	then
+		rmdir "$tmpdir/$basedir"
+	fi
+
+	if [[ -e "$tmpdir" ]]
+	then
+		rmdir "$tmpdir"
+	fi
 }
 
 if [[ "$#" -lt 2 ]]
@@ -36,12 +49,12 @@ else
 	args="--stats"
 fi
 
+trap cleanup EXIT
 tmpdir="$(mktemp -d)"
 mkdir "$tmpdir/$basedir"
 
 cd "$tmpdir"
 rsync --recursive --delete-before --ignore-existing --ignore-non-existing --one-file-system $args "./$basedir" "$host:$dirname"
-rmdir "$tmpdir/$basedir" "$tmpdir"
 
 # TODO: Implement exclude/include args?
 # ...
