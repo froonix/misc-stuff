@@ -36,7 +36,14 @@ run="${3:--dry}"
 dirname="$(dirname "$dir")"
 basedir="$(basename "$dir")"
 
-if [[ "$host" == "" || "$dir" == "" || "$dirname" == "" || "$dirname" == "/" || "$basedir" == "" || "$basedir" == "/" ]]
+if [[                    \
+	"$host"    == ""  || \
+	"$dir"     == ""  || \
+	"$dirname" == ""  || \
+	"$dirname" == "/" || \
+	"$basedir" == ""  || \
+	"$basedir" == "/"    \
+]]
 then
 	stderr "Error: Invalid directory! Please check your arguments."
 	exit 1
@@ -54,7 +61,11 @@ tmpdir="$(mktemp -d)"
 mkdir "$tmpdir/$basedir"
 
 cd "$tmpdir"
-rsync --recursive --delete-before --ignore-existing --ignore-non-existing --one-file-system $args "./$basedir" "$host:$dirname"
+rsync \
+	--recursive --delete-before \
+	--one-file-system --compress \
+	--ignore-existing --ignore-non-existing \
+	$args "./$basedir" "$host:$dirname"
 
 # TODO: Implement exclude/include args?
 # ...
