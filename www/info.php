@@ -1,7 +1,4 @@
-<?php
-
-// phpinfo() output: Hide server admin's e-mail address.
-// Live demo: https://wh-nc.fnx.li/ (netcup Expert Light)
+<?php // phpinfo() output: Hide server admin's e-mail address.
 
 ob_start('censor');
 phpinfo(INFO_ALL);
