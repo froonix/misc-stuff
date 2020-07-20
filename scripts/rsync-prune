@@ -24,7 +24,7 @@ then
 	stderr "Usage: $(basename "$0") <HOST> <DIR> [--run]"
 	stderr
 	stderr "Cleanup <DIR> at SSH <HOST> via rsync."
-	stderr "Must faster than SFTP or FTPS clients."
+	stderr "Much faster than SFTP or FTPS clients."
 	stderr
 	stderr "Change ~/.ssh/config for custom SSH options!"
 	exit 1
