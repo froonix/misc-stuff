@@ -129,5 +129,5 @@ done < "$tmp"
 
 if [[ "$f" -gt 0 ]]
 then
-	error "" "Warning: $f files failed!"
+	error "" "Warning: $f file(s) failed!"
 fi
