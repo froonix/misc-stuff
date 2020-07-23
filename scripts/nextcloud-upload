@@ -28,7 +28,7 @@ function cleanup
 # See: https://gist.github.com/1163649
 function encode_path
 {
-	local s=$(sed -r 's#^[.]{0,2}/##' <<< "$1")
+	local s=$(sed -r 's#^[.]{0,2}/##;s#[/]{2,}#/#g' <<< "$1")
 	local -i l=${#s}
 
 	for (( i = 0; i < l; i++ ))
@@ -63,28 +63,30 @@ curl -s -f -X PROPFIND "$URL/" >/dev/null \
 trap cleanup EXIT
 tmp=$(mktemp)
 
-if [[ -d "$DIR" ]]
-then
-	full="/"
-	encode_path "$DIR" > "$tmp"
-	while IFS= read -r -d '/' dir
-	do
-		full+="$dir/"
-		echo -n "[    ] $full "
+start=$(dirname "$DIR")
+echo -n "[    ] $start "
 
-		if ! curl -s -f -X MKCOL "$URL/$full" >/dev/null \
-		&& ! curl -s -f -X PROPFIND "$URL/$full" >/dev/null
-		then
-			echo -e "\r[\e[41mFAIL\e[0m]"
-			error "" "Error: Could not create start directory $DIR!"
-		fi
-
-		echo -n -e "\r[\e[32m OK \e[0m]"
-		echo " $full "
-	done < "$tmp"
-	unset full
-	unset dir
+if [[ -f "$DIR" ]]
+then encode_path "$start/" > "$tmp"
+else encode_path "$DIR/" > "$tmp"
 fi
+
+full="/"
+while IFS= read -r -d '/' dir
+do
+	full+="$dir/"
+
+	if ! curl -s -f -X MKCOL "$URL/$full" >/dev/null \
+	&& ! curl -s -f -X PROPFIND "$URL/$full" >/dev/null
+	then
+		echo -e "\r[\e[41mFAIL\e[0m]"
+		error "" "Error: Could not create start directory $full!"
+	fi
+done < "$tmp"
+
+echo -n -e "\r[\e[32m OK \e[0m]"
+echo " $start "
+unset start full dir
 
 find "$DIR" -xdev \( -type d -o -type f \) -print0 > "$tmp"
 
@@ -103,8 +105,11 @@ do
 	then
 		if ! curl -s -f -T "$file" -H "X-OC-Mtime: $(stat -c %Y "$file")" "$URL/$cfile" >/dev/null \
 		&& ! curl -s -f -X PROPFIND "$URL/$cfile" >/dev/null
-		then echo -e "\r[\e[41mFAIL\e[0m]"; ((f++)) ||:
-		else echo -e "\r[\e[32m OK \e[0m]"
+		then
+			echo -n -e "\r[\e[41mFAIL\e[0m]"
+			echo " $file "
+			((f++)) ||:
+			continue
 		fi
 	else
 		if ! curl -s -f -X MKCOL "$URL/$cfile" >/dev/null \
@@ -113,10 +118,10 @@ do
 			echo -e "\r[\e[41mFAIL\e[0m]"
 			error "" "Error: Could not create directory $file!"
 		fi
-
-		echo -n -e "\r[\e[32m OK \e[0m]"
-		echo " $file "
 	fi
+
+	echo -n -e "\r[\e[32m OK \e[0m]"
+	echo " $file "
 done < "$tmp"
 
 if [[ "$f" -gt 0 ]]
