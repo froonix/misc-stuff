@@ -28,15 +28,18 @@ function cleanup
 # See: https://gist.github.com/1163649
 function encode_path
 {
-	local s=$(sed -r 's#^[.]{0,2}/##;s#[/]{2,}#/#g' <<< "$1")
-	local -i l=${#s}
+	local -i l
+	local s
+
+	s=$(sed -r 's#^[.]{0,2}/##;s#[/]{2,}#/#g' <<< "$1")
+	l=${#s}
 
 	for (( i = 0; i < l; i++ ))
 	do
 		local c="${s:i:1}"
 
 		case "$c" in
-			[a-zA-Z0-9/.~_-]) printf "$c" ;;
+			[a-zA-Z0-9/.~_-]) printf '%s' "$c" ;;
 			*) printf '%%%02X' "'$c" ;;
 		esac
 	done
@@ -71,7 +74,7 @@ then encode_path "$start/" > "$tmp"
 else encode_path "$DIR/" > "$tmp"
 fi
 
-full="/"
+full=""
 while IFS= read -r -d '/' dir
 do
 	full+="$dir/"
