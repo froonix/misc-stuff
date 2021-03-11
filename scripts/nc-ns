@@ -1,0 +1,11 @@
+#!/bin/bash
+if [[ "$#" < 2 ]]
+then
+	man dig
+	exit 1
+fi
+
+for ns in root second third
+do
+	echo "$(printf '%6s' "$ns"): $(dig +short "@$ns-dns.netcup.net" "$@")"
+done
