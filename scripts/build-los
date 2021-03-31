@@ -37,6 +37,8 @@ echo "PRODUCT_PROPERTY_OVERRIDES = $overrides"
 echo "============================================"
 echo
 
+rm -fv "$OUT/obj/PACKAGING/target_files_intermediates"/*-target_files-*.zip
+
 mka target-files-package otatools \
  && ./build/tools/releasetools/sign_target_files_apks -o -d ~/.android-certs "$OUT/obj/PACKAGING/target_files_intermediates"/*-target_files-*.zip "$OUT/signed-target_files.zip" \
  && ./build/tools/releasetools/ota_from_target_files -k ~/.android-certs/releasekey --block --backup=true "$OUT/signed-target_files.zip" "$OUT/$filename" \
