@@ -1,0 +1,68 @@
+#!/bin/bash
+cd ~/android/lineage || exit $?
+repo init -b "${2:-lineage-16.0}" || exit $?
+repo sync -j "$(nproc)" --force-sync || exit $?
+source build/envsetup.sh
+
+export FROONIX_PRIV_BUILD=true
+export FROONIX_PRIV_BUILD_ID="FROONIX"
+export LINEAGE_BUILDTYPE="RELEASE"
+
+#export FROONIX_PRIV_BUILD=false
+#export LINEAGE_BUILDTYPE="EXPERIMENTAL"
+#export LINEAGE_EXTRAVERSION="TEST123"
+
+function dumpvar()
+{
+	./build/soong/soong_ui.bash --dumpvar-mode "$1"
+}
+
+breakfast "${1:-crackling}" || exit $?
+fullversion=$(dumpvar LINEAGE_VERSION)
+overrides=$(dumpvar PRODUCT_PROPERTY_OVERRIDES)
+displayversion=$(dumpvar LINEAGE_DISPLAY_VERSION)
+version=$(dumpvar PRODUCT_VERSION_MAJOR).$(dumpvar PRODUCT_VERSION_MINOR)
+buildtype=$(dumpvar LINEAGE_BUILDTYPE | tr '[:upper:]' '[:lower:]')
+directory=lineage-$(sed -r 's/-([A-Z-]+)-/-/' <<< "$fullversion")
+filename="lineage-$fullversion-signed.zip"
+timestamp=$(cat ./out/build_date.txt)
+
+echo
+echo "============================================"
+echo "OTA_VERSION                = $version ($buildtype)"
+echo "OTA_DIRECTORY              = $directory"
+echo "LINEAGE_DISPLAY_VERSION    = $displayversion"
+echo "SIGNED_FILENAME            = $filename"
+echo "PRODUCT_PROPERTY_OVERRIDES = $overrides"
+echo "============================================"
+echo
+
+mka target-files-package otatools \
+ && ./build/tools/releasetools/sign_target_files_apks -o -d ~/.android-certs "$OUT/obj/PACKAGING/target_files_intermediates"/*-target_files-*.zip "$OUT/signed-target_files.zip" \
+ && ./build/tools/releasetools/ota_from_target_files -k ~/.android-certs/releasekey --block --backup=true "$OUT/signed-target_files.zip" "$OUT/$filename" \
+ || exit $?
+
+cd "$OUT" || exit $?
+for algo in md5 sha256 sha512
+do
+	"${algo}sum" "$filename" > "$filename.${algo}sum" || exit $?
+done
+
+echo
+echo "============================================"
+echo "Filename: $filename"
+echo "Destination: $version/$directory"
+echo
+echo "JSON item for updater:"
+echo
+echo "		{"
+echo "			\"size\":     $(stat --printf="%s" "$filename"),"
+echo "			\"datetime\": $timestamp,"
+echo "			\"id\":       \"$(cut -d ' ' -f 1 < "$filename.md5sum")\","
+echo "			\"filename\": \"$filename\","
+echo "			\"url\":      \"https://example.net/ota/$version/$directory/$filename\","
+echo "			\"romtype\":  \"$buildtype\","
+echo "			\"version\":  \"$version\""
+echo "		},"
+echo "============================================"
+echo
