@@ -4,13 +4,13 @@ repo init -b "${2:-lineage-16.0}" || exit $?
 repo sync -j "$(nproc)" --force-sync || exit $?
 source build/envsetup.sh
 
-export FROONIX_PRIV_BUILD=true
-export FROONIX_PRIV_BUILD_ID="FROONIX"
-export LINEAGE_BUILDTYPE="RELEASE"
+#export FROONIX_PRIV_BUILD=true
+#export FROONIX_PRIV_BUILD_ID="FROONIX"
+#export LINEAGE_BUILDTYPE="RELEASE"
 
-#export FROONIX_PRIV_BUILD=false
-#export LINEAGE_BUILDTYPE="EXPERIMENTAL"
-#export LINEAGE_EXTRAVERSION="TEST123"
+export FROONIX_PRIV_BUILD=false
+export LINEAGE_BUILDTYPE="EXPERIMENTAL"
+export LINEAGE_EXTRAVERSION=""
 
 function dumpvar()
 {
