@@ -1,0 +1,52 @@
+#!/bin/bash
+set -euf -o pipefail
+export LANG=C
+umask 0022
+
+if [[ $# -lt 1 ]]
+then
+	cat << EOF >&2
+Usage: $(basename "$0") <SUFFIX> [twrp]
+
+ * Pull "uImage.<SUFFIX>" via ADB from HP TouchPad (Tenderloin) device.
+ * Execute repack-tenderloin-ramdisk (press [N] to stop the loop)
+ * Push new kernel and ramdisk via ADB to device.
+
+Use [twrp] flag if the device has bootet TWRP recovery image.
+Use environment variable ANDROID_SERIAL to select a device.
+
+Tested with LineageOS boot images.
+EOF
+	exit 1
+fi
+
+flag=${2:-}
+uimage="uImage.$1"
+tmp="/tmp/$uimage"
+
+if [[ "$flag" == "twrp" ]]
+then
+	mount="twrp mount /boot"
+	umount="twrp umount /boot"
+else
+	mount="mount -o remount,rw /boot"
+	umount="mount -o remount,ro /boot"
+fi
+
+
+adb root || :
+adb shell -- $mount || :
+adb pull "/boot/$uimage" "$tmp"
+
+echo
+"$(dirname "$0")"/repack-tenderloin-ramdisk "$tmp"
+echo
+
+adb root || :
+adb shell -- $mount || :
+adb push "$tmp" "/boot/$uimage"
+adb shell -- $umount
+adb reboot
+
+echo
+echo "Success! Rebooting device..."

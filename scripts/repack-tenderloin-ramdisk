@@ -1,0 +1,97 @@
+#!/bin/bash
+set -euf -o pipefail
+export LANG=C
+umask 0022
+
+if [[ $# -lt 1 || ! -f "$1" ]]
+then
+	cat << EOF >&2
+Usage: $(basename "$0") <UIMAGE> [<DIRECTORY> [<UNAME> [<RNAME>]]]
+
+Extract ramdisk files from UIMAGE to DIRECTORY and repack into UIMAGE using an interactive endless loop.
+Set uImage name to UNAME and ramdisk name to RNAME. By default original image names will be used for both.
+
+Developed for HP TouchPad (Tenderloin) device. Tested with LineageOS boot images.
+EOF
+	exit 1
+fi
+
+tmp=
+kernel=
+ramdisk=
+function cleanup
+{
+	[[ -f "$ramdisk" ]] && rm -f "$ramdisk"
+	[[ -f "$kernel" ]] && rm -f "$kernel"
+	[[ -f "$itmp" ]] && rm -f "$itmp"
+	[[ -d "$tmp" ]] && rm -rf "$tmp"
+}
+trap cleanup EXIT
+
+if [[ $# -lt 2 ]]
+then
+	tmp=$(mktemp --tmpdir --directory tenderloin-ramdisk-XXXXXXXXXX)
+	directory=$tmp
+elif [[ ! -d "$2" ]]
+then
+	echo "Not a directory: $2" >&2
+	exit
+else
+	directory=$2
+fi
+
+uimage=$1
+ubkp="$uimage.$(date +%s).bkp"
+dumpimage -l "$uimage"
+echo
+
+itmp=$(mktemp --tmpdir tenderloin-tmp-XXXXXXXXXX)
+kernel=$(mktemp --tmpdir tenderloin-kernel-XXXXXXXXXX)
+ramdisk=$(mktemp --tmpdir tenderloin-ramdisk-XXXXXXXXXX)
+iname=$(dumpimage -l "$uimage" | grep '^Image Name:' | cut -d ':' -f 2)
+iname=${3:-${iname#"${iname%%[![:space:]]*}"}}
+
+dumpimage -p 0 -o "$kernel" "$uimage"
+dumpimage -p 1 -o "$ramdisk" "$uimage"
+
+dumpimage -l "$ramdisk"
+echo
+
+rname=$(dumpimage -l "$ramdisk" | grep '^Image Name:' | cut -d ':' -f 2)
+rname=${4:-${rname#"${rname%%[![:space:]]*}"}}
+
+directory+="/rootfs"; mkdir "$directory" # <-- BUGFIX: Permissions 0755 (original) vs. 0700 (mktemp)
+dd if="$ramdisk" bs=64 skip=1 status=none | gunzip | cpio --quiet --no-absolute-filenames -i -u -D "$directory"
+
+cp -af "$uimage" "$ubkp"
+echo "Backup: $ubkp"
+echo "Input and output file: $uimage"
+echo "Extracted to: $directory"
+
+while true
+do
+	echo
+	echo -n "Press [Y] to repack or [N] to cancel: "
+	read -n 1 reply
+
+	if [[ "$reply" == "Y" || "$reply" == "y" ]]
+	then
+		echo
+		{ cd "$directory" && find . -print0 | sort -z; } | cpio --quiet -o -0 -H newc -R root:root -D "$directory" | gzip > "$itmp"
+
+		echo
+		mkimage -A arm -O linux -T ramdisk -C none -a 0x00000000 -n "$rname" -d "$itmp" "$ramdisk"
+
+		echo
+		mkimage -A arm -T multi -C none -n "$iname" -d "$kernel:$ramdisk" "$uimage"
+
+		echo
+		echo "Repacked uImage file: $uimage"
+		echo "Working directory: $directory"
+
+	elif [[ "$reply" == "N" || "$reply" == "n" ]]
+	then
+		echo
+		exit
+	fi
+done
