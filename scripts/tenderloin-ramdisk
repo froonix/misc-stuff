@@ -35,7 +35,7 @@ fi
 
 
 adb root || :
-adb shell -- $mount || :
+adb shell "$mount" || :
 adb pull "/boot/$uimage" "$tmp"
 
 echo
@@ -43,9 +43,9 @@ echo
 echo
 
 adb root || :
-adb shell -- $mount || :
+adb shell "$mount" || :
 adb push "$tmp" "/boot/$uimage"
-adb shell -- $umount
+adb shell "$umount"
 adb reboot
 
 echo

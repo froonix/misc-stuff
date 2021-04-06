@@ -72,7 +72,7 @@ while true
 do
 	echo
 	echo -n "Press [Y] to repack or [N] to cancel: "
-	read -n 1 reply
+	read -r -n 1 reply
 
 	if [[ "$reply" == "Y" || "$reply" == "y" ]]
 	then
