@@ -1,7 +1,12 @@
 #!/bin/bash
 cd ~/android/lineage || exit $?
-repo init -b "${2:-lineage-16.0}" || exit $?
-repo sync -j "$(nproc)" --force-sync || exit $?
+
+if [[ -z "${3:-}" ]]
+then
+	repo init -b "${2:-lineage-16.0}" || exit $?
+	repo sync -j "$(nproc)" --force-sync || exit $?
+fi
+
 source build/envsetup.sh
 
 #export FROONIX_PRIV_BUILD=true
@@ -26,6 +31,12 @@ buildtype=$(dumpvar LINEAGE_BUILDTYPE | tr '[:upper:]' '[:lower:]')
 directory=lineage-$(sed -r 's/-([A-Z-]+)-/-/' <<< "$fullversion")
 filename="lineage-$fullversion-signed.zip"
 timestamp=$(cat ./out/build_date.txt)
+
+if [[ -z "$fullversion" || -z "$displayversion" || "$version" == "." || -z "$buildtype" || -z "$timestamp" ]]
+then
+	echo "ERROR! Got invalid response from soong_ui..." 1>&2
+	exit 1
+fi
 
 echo
 echo "============================================"
