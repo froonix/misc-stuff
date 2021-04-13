@@ -1,0 +1,19 @@
+[user]
+	name = John Doe
+	email = user@example.net
+	signingkey = DEADC0DE
+
+[color]
+	ui = auto
+
+[pack]
+	threads = 0
+
+[commit]
+	gpgsign = true
+
+[push]
+	default = matching
+
+[merge]
+	tool = meld

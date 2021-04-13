@@ -1,0 +1,2 @@
+# https://2net.co.uk/blog/jack-server.html (DON'T FORGET: prebuilts/sdk/tools/jack-admin kill-server)
+JACK_SERVER_VM_ARGUMENTS="-Dfile.encoding=UTF-8 -XX:+TieredCompilation -Xmx6114m -Djack.server.max-service=1"
