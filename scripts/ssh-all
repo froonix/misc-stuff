@@ -10,11 +10,12 @@
 for i in $(egrep '^Host' ~/.ssh/config | sed 's/^Host //' | grep -v '/')
 do
 	read -p "» Nächster Host: ${i} – verbinden [J/n]? " -n 1
+
 	if [[ "${REPLY}" =~ ^[JjYy]$ ]]
 	then
-		if [[ "$1" != "" ]]
+		if [ $# -gt 0 ]
 		then
-			echo; ssh "${i}" -- "$1"
+			echo; ssh "${i}" -- "$@"
 		else
 			echo; ssh "${i}"
 		fi
