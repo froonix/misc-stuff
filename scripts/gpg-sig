@@ -1,0 +1,10 @@
+#!/bin/bash
+for file in "$@"
+do
+	if [[ ! -f "$file" ]]
+	then
+		continue
+	fi
+
+	gpg -u FFFFFFFFFFFFFFFF --armor --output "$file.sig" --detach-sig "$file"
+done
