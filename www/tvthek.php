@@ -161,6 +161,8 @@ try
 {
 	if(isset($_GET['url']))
 	{
+		throw new RuntimeException("Service API locked! Please use youtube-dl.");
+
 		$url = (string) $_GET['url'];
 		$url = str_replace('/topic/', '/profile/', $url);
 		$url = str_replace('/history/', '/profile/', $url);
