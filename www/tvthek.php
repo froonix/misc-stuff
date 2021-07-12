@@ -9,7 +9,7 @@ if(isset($_GET['source']))
 
 ###################################################################################
 # API-USERNAME & API-PASSWORD: https://github.com/s0faking/plugin.video.orftvthek #
-#  /blob/69090e449e84346ff2a4fe47e359053eb44823db/resources/lib/serviceapi.py#L36 #
+#  /blob/c75ddb57d1d023f834ea19ab8ec675161a2ae8bd/resources/lib/ServiceApi.py#L40 #
 ###################################################################################
 define('API_USER', '<API-USERNAME>');
 define('API_PASS', '<API-PASSWORD>');
@@ -161,8 +161,6 @@ try
 {
 	if(isset($_GET['url']))
 	{
-		throw new RuntimeException("Service API locked! Please use youtube-dl.");
-
 		$url = (string) $_GET['url'];
 		$url = str_replace('/topic/', '/profile/', $url);
 		$url = str_replace('/history/', '/profile/', $url);
