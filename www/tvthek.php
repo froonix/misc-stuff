@@ -137,6 +137,13 @@ function getItems($data, $return = [])
 	return $return;
 }
 
+function htmlJSON($value, $options = 0, $depth = 512)
+{
+	$json = json_encode($value, $options | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS, $depth);
+
+	return is_string($json) ? $json : 'null';
+}
+
 function exception_error_handler($severity, $message, $file, $line)
 {
 	if(!(error_reporting() & $severity))
@@ -428,8 +435,11 @@ catch(Exception $e)
 				font-weight: normal;
 			}
 
-			a.downloads, .killdate {
+			.downloads, .downloads a, .killdate {
 				color: #555;
+			}
+
+			.downloads a, .killdate {
 				border-bottom: 1px dotted;
 			}
 
@@ -453,13 +463,37 @@ catch(Exception $e)
 				text-align: right;
 			}
 
+			#txt
+			{
+				position: absolute;
+				overflow: hidden;
+				opacity: .01;
+				height: 0px;
+			}
+
 		</style>
+		<script>
+
+			function copyLinks(content)
+			{
+				var txt = document.getElementById('txt');
+				txt.value = content;
+				txt.select();
+				txt.setSelectionRange(0, content.length);
+
+				if(document.execCommand('copy'))
+				{
+					alert('Die Downloadlinks der besten Videodatei und aller Untertitel wurden in die Zwischenablage kopiert!');
+				}
+			}
+
+		</script>
 	</head>
 	<body>
 		<div id="header">
-			<form action="<?php echo htmlentities($_SERVER['PHP_SELF'], null, 'UTF-8') ?>" method="get">
+			<form action="<?php echo htmlentities($_SERVER['PHP_SELF'], ENT_QUOTES, 'UTF-8') ?>" method="get">
 				TVThek URL:
-				<input type="text" name="url" class="url" value="<?php echo htmlentities($url, null, 'UTF-8'); ?>" />
+				<input type="text" name="url" class="url" value="<?php echo htmlentities($url, ENT_QUOTES, 'UTF-8'); ?>" />
 				<input type="submit" class="submit" value="Absenden" />
 			</form>
 		</div>
@@ -470,7 +504,7 @@ if($error !== null)
 {
 
 ?>
-		<div id="error"><?php echo htmlentities($error, null, 'UTF-8') ?></div>
+		<div id="error"><?php echo htmlentities($error, ENT_QUOTES, 'UTF-8') ?></div>
 
 <?php
 
@@ -489,32 +523,32 @@ foreach($result as $item)
 
 ?>
 				<li <?php echo ((isset($item['gapless']) && $item['gapless']) ? 'class="info"' : ''); ?>>
-					<a href="<?php echo htmlentities($item['link'], null, 'UTF-8') ?>" class="headline"><?php echo htmlentities($item['title'], null, 'UTF-8') ?></a>
+					<a href="<?php echo htmlentities($item['link'], ENT_QUOTES, 'UTF-8') ?>" class="headline"><?php echo htmlentities($item['title'], ENT_QUOTES, 'UTF-8') ?></a>
 <?php
 
 	if($item['description'])
 	{
 
 ?>
-					<p class="description"><?php echo nl2br(htmlentities($item['description'], null, 'UTF-8')); ?></p>
+					<p class="description"><?php echo nl2br(htmlentities($item['description'], ENT_QUOTES, 'UTF-8')); ?></p>
 <?php
 
 	}
 
 	if(!isset($item['selection']) || !$item['selection'])
 	{
-		$progressive = $subtitles = $downloads = [];
+		$progressive = $subtitles = $downloads = $shell = [];
 
 		if(count($item['progressive']))
 		{
 			foreach($item['progressive'] as $key => $value)
 			{
-				$progressive[] = sprintf('<a href="%2$s">%1$s</a>', htmlentities($key, null, 'UTF-8'), htmlentities($value, null, 'UTF-8'));
+				$progressive[] = sprintf('<a href="%2$s">%1$s</a>', htmlentities($key, ENT_QUOTES, 'UTF-8'), htmlentities($value, ENT_QUOTES, 'UTF-8'));
 			}
 
-			$downloads[] = $_ = addslashes(htmlentities(array_pop($item['progressive']), null, 'UTF-8'));
+			$_ = $downloads[] = $shell[] = array_pop($item['progressive']);
 
-			if(!isset($item['gapless']) || !$item['gapless'])
+			if(empty($item['gapless']))
 			{
 
 				$files[] = $_;
@@ -524,23 +558,27 @@ foreach($result as $item)
 
 		foreach($item['subtitles'] as $key => $value)
 		{
-			$subtitles[] = sprintf('<a href="%2$s">%1$s</a>', htmlentities($key, null, 'UTF-8'), htmlentities($value, null, 'UTF-8'));
+			$subtitles[] = sprintf('<a href="%2$s">%1$s</a>', htmlentities($key, ENT_QUOTES, 'UTF-8'), htmlentities($value, ENT_QUOTES, 'UTF-8'));
 
-			if(!isset($item['gapless']) || !$item['gapless'])
+			if(empty($item['gapless']))
 			{
-				$downloads[] = addslashes(htmlentities($value, null, 'UTF-8'));
+				$downloads[] = $shell[] = $value;
 			}
 		}
 
 ?>
 					<br /><br />
 					<p>Dauer: <?php echo $item['duration'] ? sprintf('<b>%s</b>', gmdate('H:i:s', $item['duration'] / 1000)) : '-'; ?></p>
-					<?php if(!$glt || (isset($item['gapless']) && $item['gapless'])) { ?><p>Datum: <?php echo $item['datetime'] ? sprintf('%s', date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } ?>
-					<?php echo $item['youth_protection'] ? sprintf('<p>Jugendschutz: <span class="youth_protection">%s</span></p>', htmlentities($item['youth_protection'])) : ''; ?>
+					<?php if(!$glt || (isset($item['gapless']) && $item['gapless'])) { ?><p>Datum: <?php echo $item['datetime'] ? sprintf('%s', date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } else { echo "\n"; } ?>
+					<?php echo $item['youth_protection'] ? sprintf('<p>Jugendschutz: <span class="youth_protection">%s</span></p>', htmlentities($item['youth_protection'])) : "\n"; ?>
 					<p>Untertitel: <?php echo implode(' &bull; ', $subtitles); ?></p>
 					<p>Videodatei: <?php echo  implode(' &bull; ', $progressive); ?></p>
 					<?php echo $item['killdate'] ? sprintf('<p><span class="killdate" title="Verfügbar bis %s">Noch <b>%d</b> Stunden verfügbar</span></p>', date('d.m.Y, H:i', $item['killdate']), ($item['killdate'] - time()) / 3600) : ''; ?>
-					<a href="javascript:void prompt('Alle Untertitel und die beste Videodatei f&uuml;r Copy &amp; Paste:', &quot;<?php echo implode('\n', $downloads) . '\n'; ?>&quot;);" class="downloads">Downloadlinks</a>
+
+					<div class="downloads">
+						<a href="javascript:void copyLinks(<?php echo htmlentities(htmlJSON(implode("\n", $downloads) . "\n"), ENT_QUOTES, 'UTF-8'); ?>);">Downloadlinks</a>
+						(<a href="javascript:void prompt(null, <?php echo htmlentities(htmlJSON(sprintf("wget -q --show-progress --user-agent=%s %s", escapeshellarg(''), implode(' ', array_map('escapeshellarg', $shell)))), ENT_QUOTES, 'UTF-8'); ?>);">Shell</a>)
+					</div>
 <?php
 
 	}
@@ -557,10 +595,10 @@ if(count($files) > 1)
 ?>
 				<li class="info">
 					<b>Alle Videodateien dieser Episode in bester Qualität:</b><br /><br />
-					<textarea id="files" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo stripslashes(implode("\n", $files)); ?></textarea>
+					<textarea id="files" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo htmlentities(implode("\n", $files), ENT_QUOTES, 'UTF-8'); ?></textarea>
 					<script> var i = document.getElementById('files'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 					<br /><br />Direkter Downloads mittels Bash und Wget:<br /><br />
-					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()">tvthek=( "<?php echo implode('" "', $files); ?>" ); for key in ${!tvthek[@]}; do wget -q --show-progress -O "$(printf %02d "$(( $key + 1 ))").mp4" "${tvthek[$key]}" || break; done</textarea>
+					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()">tvthek=( <?php echo htmlentities(implode(' ', array_map('escapeshellarg', $files)), ENT_QUOTES, 'UTF-8'); ?> ); for key in ${!tvthek[@]}; do wget -q --show-progress -O "$(printf %02d "$(( $key + 1 ))").mp4" "${tvthek[$key]}" || break; done</textarea>
 					<script> var i = document.getElementById('console'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 					<?php if($glt) { ?><br /><br /><i>Als bessere Alternative gibt es das sogenannte Gapless-Video, siehe erster (grüner) Eintrag.</i><?php } ?>
 				</li>
@@ -578,12 +616,13 @@ if(count($files) > 1)
 
 ?>
 		<footer>
+			<textarea id="txt"></textarea>
 			Version vom <?php echo date('d.m.Y \u\m H:i:s', filemtime(__file__)); ?>
 
 			&bull;
 			<a href="?source=true">Quellcode anzeigen</a>
 			&bull;
-			<a href="javascript:(function(){ window.open('<?php echo addslashes(htmlentities(sprintf('https://%s%s', $_SERVER['HTTP_HOST'], $_SERVER['PHP_SELF']), null, 'UTF-8')); ?>?url='+encodeURI(location.href)); })();" title="Dieser Link kann direkt in die Lesezeichenleiste gezogen werden!">Interaktives Lesezeichen</a>
+			<a href="javascript:(function(){ window.open('<?php echo addslashes(htmlentities(sprintf('https://%s%s', $_SERVER['HTTP_HOST'], $_SERVER['PHP_SELF']), ENT_QUOTES, 'UTF-8')); ?>?url='+encodeURI(location.href)); })();" title="Dieser Link kann direkt in die Lesezeichenleiste gezogen werden!">Interaktives Lesezeichen</a>
 		</footer>
 	</body>
 </html>
