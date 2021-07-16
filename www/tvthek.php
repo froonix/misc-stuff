@@ -598,7 +598,7 @@ if(count($files) > 1)
 					<textarea id="files" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo htmlentities(implode("\n", $files), ENT_QUOTES, 'UTF-8'); ?></textarea>
 					<script> var i = document.getElementById('files'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 					<br /><br />Direkter Downloads mittels Bash und Wget:<br /><br />
-					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()">tvthek=( <?php echo htmlentities(implode(' ', array_map('escapeshellarg', $files)), ENT_QUOTES, 'UTF-8'); ?> ); for key in ${!tvthek[@]}; do wget -q --show-progress -O "$(printf %02d "$(( $key + 1 ))").mp4" "${tvthek[$key]}" || break; done</textarea>
+					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()">tvthek=( <?php echo htmlentities(implode(' ', array_map('escapeshellarg', $files)), ENT_QUOTES, 'UTF-8'); ?> ); for key in ${!tvthek[@]}; do wget -q --show-progress -O "$(printf %02d "$(( key + 1 ))").mp4" "${tvthek[$key]}" || break; done</textarea>
 					<script> var i = document.getElementById('console'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 					<?php if($glt) { ?><br /><br /><i>Als bessere Alternative gibt es das sogenannte Gapless-Video, siehe erster (grüner) Eintrag.</i><?php } ?>
 				</li>
