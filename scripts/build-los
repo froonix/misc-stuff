@@ -10,13 +10,18 @@ fi
 
 source build/envsetup.sh
 
-#export FROONIX_PRIV_BUILD=true
-#export FROONIX_PRIV_BUILD_ID="FROONIX"
-#export LINEAGE_BUILDTYPE="RELEASE"
-
 export FROONIX_PRIV_BUILD=false
 export LINEAGE_BUILDTYPE="EXPERIMENTAL"
 export LINEAGE_EXTRAVERSION=""
+
+#export FROONIX_PRIV_BUILD=true
+#export FROONIX_PRIV_BUILD_ID="FROONIX"
+#export LINEAGE_BUILDTYPE="RELEASE"
+#
+### OPTIONAL: Required for OTA & recovery!
+##rm -rf vendor/froonix-secret-certs || exit $?
+##cp -avf ~/.android-certs vendor/froonix-secret-certs || exit $?
+##export FROONIX_CERTIFICATE=vendor/froonix-secret-certs/releasekey
 
 function dumpvar()
 {
