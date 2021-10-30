@@ -56,7 +56,7 @@ $cache = sprintf('%s/orf-%s.m3u8', sys_get_temp_dir(), md5($channel));
 if(!file_exists($cache) || ($m = filemtime($cache)) < (time() - CACHE_TIMEOUT) || !($s = filesize($cache)))
 {
 	$m3u8 = [];
-	foreach(['q1a', 'q4a', 'q6a', 'q8c'] as $quality) // qxb
+	foreach(['q4a', 'q6a', 'q8c'] as $quality) // qxb
 	{
 		$base = sprintf('https://%1$s.mdn.ors.at/out/u/%1$s/%2$s/', rawurlencode($channel), rawurlencode($quality));
 
