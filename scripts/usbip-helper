@@ -4,6 +4,24 @@
 # [SERVER] Tested with usbip-utils 2.0 (Kernel 5.10.0) at OpenWrt 21.02.1
 ###
 
+get_usb_port()
+{
+	usbip port \
+	| awk '/^Port/ { port=$2; FS=":" } /^[ ]+.+:.+\([a-f0-9]+:[a-f0-9]+\)/ { split($(NF-1), a, "("); split($NF, b, ")"); id=a[2]":"b[1]; FS="/" } /usbip:/ { print id" "int(port)" "$(NF-1); FS=" " }' \
+	| while IFS= read -r line
+	do
+		usbid=$(printf %s "$line" | cut -d ' ' -f 1)
+		port=$(printf %s "$line" | cut -d ' ' -f 2)
+		host=$(printf %s "$line" | cut -d ' ' -f 3)
+
+		if [ "$host" = "$remote:3240" ] && [ "$usbid" = "$id" ]
+		then
+			echo "$port"
+			exit
+		fi
+	done
+}
+
 usage()
 {
 	echo "Usage: $0 DEVICE attach|detach" >&2
@@ -38,6 +56,14 @@ modprobe vhci_hcd
 if [ "$1" = "attach" ]
 then
 
+	port=$(get_usb_port)
+
+	if [ -n "$port" ]
+	then
+		echo "Device $id from $remote:3240 is already attached at port $port." >&2
+		exit 0
+	fi
+
 	usbip list -r "$remote" \
 	| awk 'BEGIN { FS=":" } /^[ ]+[0-9]+-[0-9]+\.[0-9]+:/ { split($(NF-1), a, "("); split($NF, b, ")"); n=split($1, c, " "); print a[2]":"b[1]" "c[n] } ' \
 	| while IFS= read -r line
@@ -47,31 +73,42 @@ then
 
 		if [ "$usbid" = "$id" ]
 		then
-			echo "Attaching remote bus $bus ($usbid) from $remote:3240..." >&2
+			echo "Attaching remote bus $bus ($id) from $remote:3240..." >&2
 			usbip attach -r "$remote" -b "$bus"
+
+			for i in $(seq 1 30)
+			do
+				port=$(get_usb_port)
+
+				if [ -n "$port" ]
+				then
+#					echo "DEBUG: Found remote bus $bus ($id) from $remote:3240 at port $port after $i tries." >&2
+					exit 100
+				fi
+
+				sleep 1
+			done
 		fi
 	done
+
+	[ $? -eq 100 ] && exit 0
+	echo "ERROR: Could not attach device $id from $remote:3240!" >&2
+	exit 1
 
 elif [ "$1" = "detach" ]
 then
 
-	usbip port \
-	| awk '/^Port/ { port=$2; FS=":" } /^[ ]+.+:.+\([a-f0-9]+:[a-f0-9]+\)/ { split($(NF-1), a, "("); split($NF, b, ")"); id=a[2]":"b[1]; FS="/" } /usbip:/ { print id" "int(port)" "$(NF-1) }' \
-	| while IFS= read -r line
-	do
-		usbid=$(printf %s "$line" | cut -d ' ' -f 1)
-		port=$(printf %s "$line" | cut -d ' ' -f 2)
-		host=$(printf %s "$line" | cut -d ' ' -f 3)
+	port=$(get_usb_port)
 
-		if [ "$host" = "$remote:3240" ] && [ "$usbid" = "$id" ]
-		then
-			echo "Detaching port $port ($usbid) from $host..." >&2
-			usbip detach -p "$port"
-		fi
-	done
+	if [ -n "$port" ]
+	then
+		echo "Detaching port $port ($id) from $remote:3240..." >&2
+		usbip detach -p "$port"
+	fi
 
 else
 
 	usage
 
 fi
+
