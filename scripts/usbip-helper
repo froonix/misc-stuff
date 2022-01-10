@@ -78,6 +78,7 @@ then
 
 			for i in $(seq 1 30)
 			do
+				sleep 1
 				port=$(get_usb_port)
 
 				if [ -n "$port" ]
@@ -85,8 +86,6 @@ then
 #					echo "DEBUG: Found remote bus $bus ($id) from $remote:3240 at port $port after $i tries." >&2
 					exit 100
 				fi
-
-				sleep 1
 			done
 		fi
 	done
