@@ -1,0 +1,5 @@
+[styling]
+
+# Workaround: Geany zeigt bei Ubuntu 20.04 keine Unterstriche mehr an!
+# https://github.com/geany/geany/issues/2466#issuecomment-610710741
+line_height=0;2;
