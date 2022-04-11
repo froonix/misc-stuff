@@ -3,4 +3,4 @@
 # Workaround: Geany zeigt bei Ubuntu 20.04 keine Unterstriche mehr an!
 # Umlaute werden zwar noch angezeigt, aber teilweise auch abgeschnitten.
 # https://github.com/geany/geany/issues/2466#issuecomment-610710741
-line_height=2;2;
+line_height=1;1;
