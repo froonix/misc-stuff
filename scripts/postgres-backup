@@ -25,7 +25,8 @@ SUFFIX=".xz"
 
 function cleanup
 {
-	[[ -n "$tmpfile" ]] && rm -rf "$tmpfile"
+	# shellcheck disable=SC2015
+	[[ -n "$tmpfile" ]] && rm -rf "$tmpfile" ||:
 }
 
 tmpfile=
