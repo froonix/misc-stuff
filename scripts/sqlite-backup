@@ -9,8 +9,8 @@ SRC="/var/lib/phpliteadmin/*.db"
 
 for db in $SRC
 do
-	date=`date +%Y%m%d-%H%M%S`
-	file=`basename "$db" | cut -d . -f 1`
+	date=$(date --utc +%Y%m%d-%H%M%S)
+	file=$(basename "$db" | cut -d . -f 1)
 	sqlite3 "$db" ".backup '$DST/${file}_${date}.db'"
 	xz -9 "$DST/${file}_${date}.db"
 done
