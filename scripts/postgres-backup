@@ -1,0 +1,61 @@
+#!/bin/bash
+#
+# Backup PostgreSQL DB's
+#
+# su -c psql postgres
+# > CREATE ROLE $USER;
+# > ALTER ROLE $USER WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN;
+# > \q
+#
+set -euf -o pipefail
+
+PRUNE=90
+DST="/var/lib/postgresqlbackups"
+FILE=$(date --utc +%Y%m%d-%H%M%S)
+COMPRESS=( xz -9 )
+SUFFIX=".xz"
+
+## Gzip compression:
+#COMPRESS=( gzip -9 )
+#SUFFIX=".gz"
+
+## No compression:
+#COMPRESS=( cat )
+#SUFFIX=
+
+function cleanup
+{
+	[[ -n "$tmpfile" ]] && rm -rf "$tmpfile"
+}
+
+tmpfile=
+trap cleanup EXIT
+mkdir -p "$DST/.globals"
+chmod 0700 "$DST"
+
+tmpfile=$(mktemp)
+pg_dumpall -g | "${COMPRESS[@]}" > "$tmpfile"
+mv -f "$tmpfile" "${DST}/.globals/${FILE}.sql${SUFFIX}"
+tmpfile=
+
+psql -At postgres <<- "EOF" |
+	SELECT datname
+	FROM pg_database
+	WHERE NOT datistemplate
+	AND datallowconn
+	ORDER BY datname;
+EOF
+while IFS= read -r db
+do
+	[[ -z "$db" ]] && continue
+	dbdir=$(basename "$db")
+	mkdir -p "$DST/$dbdir"
+
+	tmpfile=$(mktemp)
+	pg_dump -Fp "$db" | "${COMPRESS[@]}" > "$tmpfile"
+	mv -f "$tmpfile" "${DST}/$dbdir/${FILE}.sql${SUFFIX}"
+	tmpfile=
+done
+
+find "$DST" -type f -name '*.sql.*' -mtime "+$PRUNE" -delete -print
+find "$DST" -type d -empty -delete
