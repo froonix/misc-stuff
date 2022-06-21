@@ -4,7 +4,7 @@
 #  MariaDB Backup Script for Froonix           #
 #  (forked from automysqlbackup v2.5)          #
 #                                              #
-#  v1.0.0 (2017-08-31) by Christian Schrötter  #
+#  v1.0.1 (2022-06-21) by Christian Schrötter  #
 #  ------------------------------------------  #
 #  Git: https://github.com/froonix/misc-stuff  #
 #                                              #
@@ -37,17 +37,17 @@ fi
 
 LANG=C
 BACKUPFILES=
-DATE=`date +%Y-%m-%d_%Hh%Mm`
-DOW=`date +%A`
-DNOW=`date +%u`
-DOM=`date +%d`
-M=`date +%B`
-W=`date +%V`
+DATE=$(date +%Y-%m-%d_%Hh%Mm)
+DOW=$(date +%A)
+DNOW=$(date +%u)
+DOM=$(date +%d)
+M=$(date +%B)
+W=$(date +%V)
 
 PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/mysql/bin
-LOGFILE="$BACKUPDIR/`date +%s`.log"
-LOGERR="$BACKUPDIR/`date +%s`.err"
-OPT="--quote-names --events"
+LOGFILE="$BACKUPDIR/$(date +%s).log"
+LOGERR="$BACKUPDIR/$(date +%s).err"
+OPT="--events"
 
 if [ "${ROUTINES}" = "yes" ]
 then OPT="${OPT} --routines"
@@ -77,7 +77,8 @@ function dbdump ()
 	else NEWOPT="--opt $OPT"
 	fi
 
-	mysqldump --defaults-file="$DEFAULTS" $NEWOPT $1 > $2
+	# shellcheck disable=SC2086
+	mysqldump --defaults-extra-file="$DEFAULTS" $NEWOPT "$1" > "$2"
 
 	return 0
 }
@@ -114,7 +115,7 @@ if [[ "$DOM" == "01" ]]
 then
 	for MDB in $MDBNAMES
 	do
-		MDB="`echo $MDB | sed 's/%/ /g'`"
+		MDB=${MDB//%/ }
 
 		if [[ ! -e "$BACKUPDIR/monthly/$MDB" ]]
 		then mkdir -p "$BACKUPDIR/monthly/$MDB"
@@ -130,7 +131,7 @@ fi
 
 for DB in $DBNAMES
 do
-	DB="`echo $DB | sed 's/%/ /g'`"
+	DB=${DB//%/ }
 
 	if [[ ! -e "$BACKUPDIR/daily/$DB" ]]
 	then mkdir -p "$BACKUPDIR/daily/$DB"
@@ -146,9 +147,9 @@ do
 		echo "Weekly Backup of Database ($DB)"
 		echo "Rotating 5 weeks Backups..."
 
-		if [ "$W" -le 05 ]; then REMW=`expr 48 + $W`
-		elif [ "$W" -lt 15 ]; then REMW=0`expr $W - 5`
-		else REMW=`expr $W - 5`
+		if [ "$W" -le 05 ]; then REMW=$((48 + W))
+		elif [ "$W" -lt 15 ]; then REMW="0$((W - 5))"
+		else REMW=$((W - 5))
 		fi
 
 		rm -fv "$BACKUPDIR/weekly/$DB/${DB}_week.$REMW".*
@@ -178,7 +179,7 @@ echo "Backup End $(date)"
 echo "======================================================================"
 echo "Total disk space used for backup storage..."
 echo "Size - Location"
-echo `du -hs "$BACKUPDIR"`
+du -hs "$BACKUPDIR"
 
 exec 1>&6 6>&-
 exec 1>&7 7>&-
