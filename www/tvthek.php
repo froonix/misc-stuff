@@ -163,6 +163,7 @@ $matches = null;
 $episode = null;
 $result  = null;
 $url     = null;
+$all     = null;
 
 try
 {
@@ -188,6 +189,7 @@ try
 		{
 			$results = getEpisodes((int) $matches[1]);
 
+			$IDs = [];
 			$result = [];
 			foreach($results as $key => $value)
 			{
@@ -211,6 +213,11 @@ try
 					$title = $value['share_subject'];
 				}
 
+				if(isset($value['id']))
+				{
+					$IDs[] = $value['id'];
+				}
+
 				$result[] = [
 					'duration'    => isset($value['duration'])      ? $value['duration']                : null,
 					'datetime'    => isset($value['date'])          ? strtotime($value['date'])         : null,
@@ -220,6 +227,58 @@ try
 					'title'       => $title,
 					'selection'   => true,
 				];
+			}
+
+			$all = [];
+			foreach($IDs as $id)
+			{
+				$gapless = null;
+				$youth_protection = null;
+
+				$data = getEpisode($id, $gapless, $youth_protection);
+
+				if($gapless && !$youth_protection)
+				{
+					$progressive = [];
+					if(isset($gapless['sources']['progressive_download']) && is_array($gapless['sources']['progressive_download']))
+					{
+						foreach($gapless['sources']['progressive_download'] as $_key => $_value)
+						{
+							if(isset($_value['quality_key'], $_value['src']))
+							{
+								$progressive[$_value['quality_key']] = $_value['src'];
+							}
+						}
+					}
+
+					if(count($progressive))
+					{
+						if(!empty($gapless['title']))
+						{
+							$title = $gapless['title'];
+
+							if(!empty($gapless['teaser_title']) && strpos($gapless['title'], $gapless['teaser_title']) === false)
+							{
+								$title .= ' - ' . $gapless['teaser_title'];
+							}
+						}
+						else
+						{
+							$title = $gapless['share_subject'];
+						}
+
+						$all[$id] =
+						[
+							'progressive' => array_pop($progressive),
+							'datetime'    => isset($gapless['date']) ? strtotime($gapless['date']) : null,
+							'title'       => $title,
+						];
+
+						continue;
+					}
+				}
+
+				$all = false;
 			}
 		}
 	}
@@ -601,6 +660,32 @@ if(count($files) > 1)
 					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()">tvthek=( <?php echo htmlentities(implode(' ', array_map('escapeshellarg', $files)), ENT_QUOTES, 'UTF-8'); ?> ); for key in ${!tvthek[@]}; do wget --no-verbose --show-progress -O "$(printf %02d "$(( key + 1 ))").mp4" "${tvthek[$key]}" || break; done</textarea>
 					<script> var i = document.getElementById('console'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 					<?php if($glt) { ?><br /><br /><i>Als bessere Alternative gibt es das sogenannte Gapless-Video, siehe erster (grüner) Eintrag.</i><?php } ?>
+				</li>
+<?php
+
+}
+else if($all)
+{
+	$files = [];
+	$commands = ['failed=0'];
+	foreach($all as $id => $data)
+	{
+		$datetime = $data['datetime'] ? date('Ymd-His - ', $data['datetime']) : '';
+		$title = sprintf('%s%s.tvthek-%d.mp4', $datetime, preg_replace('/[_]{2,}/', '_', preg_replace('/[^\w\d\p{L} !#$%&\\\'()+,-.;=@\\[\\]^_`{}~]/u', '_', $data['title'])), $id);
+		$commands[] = sprintf('wget --no-verbose --show-progress --no-clobber --output-document=%s %s || failed=1', escapeshellarg($title), escapeshellarg($data['progressive']));
+		$files[] = $data['progressive'];
+	}
+
+	$commands[] = '[ "$failed" -ne 0 ] && echo "!!! FAILED !!!" >&2';
+
+?>
+				<li class="info">
+					<b>Alle Episoden in bester Qualität:</b><br /><br />
+					<textarea id="files" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo htmlentities(implode("\n", $files), ENT_QUOTES, 'UTF-8'); ?></textarea>
+					<script> var i = document.getElementById('files'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
+					<br /><br />Direkter Downloads mittels Bash und Wget:<br /><br />
+					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo htmlentities(implode("; \\\n", $commands), ENT_QUOTES, 'UTF-8'); ?></textarea>
+					<script> var i = document.getElementById('console'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 				</li>
 <?php
 
