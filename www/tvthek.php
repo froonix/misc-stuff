@@ -676,7 +676,7 @@ else if($all)
 		$files[] = $data['progressive'];
 	}
 
-	$commands[] = '[ "$failed" -ne 0 ] && echo "!!! FAILED !!!" >&2';
+	$commands[] = '[ "$failed" -ne 0 ] && echo \'!!! FAILED !!!\' >&2';
 
 ?>
 				<li class="info">
