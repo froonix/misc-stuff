@@ -17,8 +17,8 @@ define('API_HOST', 'api-tvthek.orf.at');
 define('API_PATH', '/api/v3/');
 
 define('API_BASE', sprintf('https://%s:%s@%s%s', API_USER, API_PASS, API_HOST, API_PATH));
-define('API_LIMIT', 100);
 define('API_CACHE', 300);
+define('API_LIMIT', 20);
 
 function API($r)
 {
@@ -110,9 +110,9 @@ function getSegments($data, $return = [])
 	return $return;
 }
 
-function getEpisodes($id, $page = 1)
+function getEpisodes($id, $page = 1, $limit = API_LIMIT)
 {
-	$data = API(sprintf('profile/%u/episodes?page=' . $page . '&limit=' . API_LIMIT, $id));
+	$data = API(sprintf('profile/%u/episodes?page=' . $page . '&limit=' . $limit, $id));
 	$result = [];
 
 	if(!empty($data['pages']) && $data['pages'] > 1)
@@ -135,11 +135,11 @@ function getEpisodes($id, $page = 1)
 				{
 					$result[] =
 					[
-						'datetime'         => time(),
-						'description'      => sprintf('Es gibt viele Episoden, aufgeteilt auf insgesamt %d Seiten.', $data['pages']),
-						'link'             => sprintf('?url=/profile/-/%u&page=%d', $id, $args['page']),
-						'title'            => sprintf('%s (%d)', $value, $args['page']),
-						'multi'            => true,
+						'datetime'    => time(),
+						'description' => sprintf('Es gibt viele Episoden, aufgeteilt auf insgesamt %d Seiten.', $data['pages']),
+						'link'        => sprintf('?url=/profile/-/%u&page=%d&limit=%d', $id, $args['page'], $limit),
+						'title'       => sprintf('%s (%d)', $value, $args['page']),
+						'multi'       => true,
 					];
 				}
 			}
@@ -226,7 +226,13 @@ try
 		else if(preg_match('#/profile/[^/]+/([0-9]+)#', $url, $matches))
 		{
 			$page = isset($_GET['page']) ? abs((int) $_GET['page']) : null;
-			$results = getEpisodes((int) $matches[1], $page ? $page : 1);
+			$limit = isset($_GET['limit']) ? abs((int) $_GET['limit']) : null;
+			$results = getEpisodes
+			(
+				(int) $matches[1],
+				$page ? $page : 1,
+				$limit ? $limit : API_LIMIT
+			);
 
 			$IDs = [];
 			$result = [];
@@ -330,6 +336,7 @@ try
 				}
 
 				$all = false;
+				break;
 			}
 		}
 	}
