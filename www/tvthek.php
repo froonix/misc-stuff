@@ -17,17 +17,20 @@ define('API_HOST', 'api-tvthek.orf.at');
 define('API_PATH', '/api/v3/');
 
 define('API_BASE', sprintf('https://%s:%s@%s%s', API_USER, API_PASS, API_HOST, API_PATH));
+define('API_LIMIT', 100);
 define('API_CACHE', 300);
 
 function API($r)
 {
-	$c = sprintf('%s/tvthek_%s.json', sys_get_temp_dir(), base64_encode($r));
+	global $context;
+
+	$c = sprintf('%s/tvthek_%s.json', sys_get_temp_dir(), rawurlencode(base64_encode($r)));
 
 	if(!API_CACHE || !file_exists($c) || filemtime($c) < (time() - API_CACHE) || !filesize($c) || ($data = file_get_contents($c)) === false)
 	{
 		$r = sprintf('%s%s', API_BASE, $r);
 
-		if(($data = file_get_contents($r)) === false)
+		if(($data = file_get_contents($r, false, $context)) === false)
 		{
 			throw new RuntimeException(sprintf('API request failed: %s', $r));
 		}
@@ -53,14 +56,16 @@ function API($r)
 function getEpisode($id, &$gapless = null, &$youth_protection = null)
 {
 	$data = API(sprintf('episode/%u', $id));
+	$result = [];
 
-	if(!($result = getSegments($data)))
+	if(!($_ = getSegments($data)))
 	{
 		throw new RuntimeException(sprintf('No segments found: %u', $id));
 	}
 
-	$gapless = getGapless($data);
+	$result = array_merge($result, $_);
 	$youth_protection = getYouthProtection($data);
+	$gapless = getGapless($data);
 
 	return $result;
 }
@@ -105,16 +110,48 @@ function getSegments($data, $return = [])
 	return $return;
 }
 
-function getEpisodes($id)
+function getEpisodes($id, $page = 1)
 {
-	$data = API(sprintf('profile/%u/episodes', $id));
+	$data = API(sprintf('profile/%u/episodes?page=' . $page . '&limit=' . API_LIMIT, $id));
+	$result = [];
 
-	if(!($result = getItems($data)))
+	if(!empty($data['pages']) && $data['pages'] > 1)
 	{
-		throw new RuntimeException(sprintf('No episodes found: %u', $id));
+		foreach
+		(
+			[
+				'previous' => 'Vorherige Seite',
+				'next'     => 'Nächste Seite',
+			]
+			as $key => $value
+		)
+		{
+			if(!empty($data['_links'][$key]['href']) && ($_ = parse_url($data['_links'][$key]['href'], PHP_URL_QUERY)))
+			{
+				$args = null;
+				parse_str($_, $args);
+
+				if(!empty($args['page']))
+				{
+					$result[] =
+					[
+						'datetime'         => time(),
+						'description'      => sprintf('Es gibt viele Episoden, aufgeteilt auf insgesamt %d Seiten.', $data['pages']),
+						'link'             => sprintf('?url=/profile/-/%u&page=%d', $id, $args['page']),
+						'title'            => sprintf('%s (%d)', $value, $args['page']),
+						'multi'            => true,
+					];
+				}
+			}
+		}
 	}
 
-	return $result;
+	if(!($_ = getItems($data)))
+	{
+		throw new RuntimeException(sprintf('No episodes found: %u (%u)', $id));
+	}
+
+	return array_merge($result, $_);
 }
 
 function getItems($data, $return = [])
@@ -164,6 +201,7 @@ $episode = null;
 $result  = null;
 $url     = null;
 $all     = null;
+$context = null;
 
 try
 {
@@ -187,7 +225,8 @@ try
 		}
 		else if(preg_match('#/profile/[^/]+/([0-9]+)#', $url, $matches))
 		{
-			$results = getEpisodes((int) $matches[1]);
+			$page = isset($_GET['page']) ? abs((int) $_GET['page']) : null;
+			$results = getEpisodes((int) $matches[1], $page ? $page : 1);
 
 			$IDs = [];
 			$result = [];
@@ -218,13 +257,25 @@ try
 					$IDs[] = $value['id'];
 				}
 
+				if(!empty($value['multi']))
+				{
+					$link = isset($value['link']) ? $value['link'] : null;
+					$multi = true;
+				}
+				else
+				{
+					$link = isset($value['id']) ? sprintf('?url=%u', $value['id']) : null;
+					$multi = false;
+				}
+
 				$result[] = [
-					'duration'    => isset($value['duration'])      ? $value['duration']                : null,
-					'datetime'    => isset($value['date'])          ? strtotime($value['date'])         : null,
-					'killdate'    => isset($value['killdate'])      ? strtotime($value['killdate'])     : null,
-					'description' => isset($value['description'])   ? $value['description']             : null,
-					'link'        => isset($value['id'])            ? sprintf('?url=%u', $value['id'])  : null,
+					'duration'    => isset($value['duration'])    ? $value['duration']            : null,
+					'datetime'    => isset($value['date'])        ? strtotime($value['date'])     : null,
+					'killdate'    => isset($value['killdate'])    ? strtotime($value['killdate']) : null,
+					'description' => isset($value['description']) ? $value['description']         : null,
+					'link'        => $link,
 					'title'       => $title,
+					'multi'       => $multi,
 					'selection'   => true,
 				];
 			}
@@ -470,6 +521,14 @@ catch(Exception $e)
 				border-left-color: lightgreen;
 			}
 
+			li.multi {
+				border-left-color: red;
+			}
+
+			li.multi:hover {
+				border-left-color: darkred;
+			}
+
 			.downloads {
 				position: absolute;
 				bottom: 5px;
@@ -579,9 +638,21 @@ else if($result !== null)
 $files = [];
 foreach($result as $item)
 {
+	if(!empty($item['multi']))
+	{
+		$li = 'class="multi"';
+	}
+	else if(isset($item['gapless']) && $item['gapless'])
+	{
+		$li = 'class="info"';
+	}
+	else
+	{
+		$li = '';
+	}
 
 ?>
-				<li <?php echo ((isset($item['gapless']) && $item['gapless']) ? 'class="info"' : ''); ?>>
+				<li <?php echo $li; ?>>
 					<a href="<?php echo htmlentities($item['link'], ENT_QUOTES, 'UTF-8') ?>" class="headline"><?php echo htmlentities($item['title'], ENT_QUOTES, 'UTF-8') ?></a>
 <?php
 
@@ -609,30 +680,32 @@ foreach($result as $item)
 
 			if(empty($item['gapless']))
 			{
-
 				$files[] = $_;
 			}
 			unset($_);
 		}
 
-		foreach($item['subtitles'] as $key => $value)
+		if(isset($item['subtitles']))
 		{
-			$subtitles[] = sprintf('<a href="%2$s">%1$s</a>', htmlentities($key, ENT_QUOTES, 'UTF-8'), htmlentities($value, ENT_QUOTES, 'UTF-8'));
-
-			if(empty($item['gapless']))
+			foreach($item['subtitles'] as $key => $value)
 			{
-				$downloads[] = $shell[] = $value;
+				$subtitles[] = sprintf('<a href="%2$s">%1$s</a>', htmlentities($key, ENT_QUOTES, 'UTF-8'), htmlentities($value, ENT_QUOTES, 'UTF-8'));
+
+				if(empty($item['gapless']))
+				{
+					$downloads[] = $shell[] = $value;
+				}
 			}
 		}
 
 ?>
 					<br /><br />
-					<p>Dauer: <?php echo $item['duration'] ? sprintf('<b>%s</b>', gmdate('H:i:s', $item['duration'] / 1000)) : '-'; ?></p>
-					<?php if(!$glt || (isset($item['gapless']) && $item['gapless'])) { ?><p>Datum: <?php echo $item['datetime'] ? sprintf('%s', date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } else { echo "\n"; } ?>
-					<?php echo $item['youth_protection'] ? sprintf('<p>Jugendschutz: <span class="youth_protection">%s</span></p>', htmlentities($item['youth_protection'])) : "\n"; ?>
+					<p>Dauer: <?php echo !empty($item['duration']) ? sprintf('<b>%s</b>', gmdate('H:i:s', $item['duration'] / 1000)) : '-'; ?></p>
+					<?php if(!$glt || (isset($item['gapless']) && $item['gapless'])) { ?><p>Datum: <?php echo !empty($item['datetime']) ? sprintf('%s', date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } else { echo "\n"; } ?>
+					<?php echo !empty($item['youth_protection']) ? sprintf('<p>Jugendschutz: <span class="youth_protection">%s</span></p>', htmlentities($item['youth_protection'])) : "\n"; ?>
 					<p>Untertitel: <?php echo implode(' &bull; ', $subtitles); ?></p>
 					<p>Videodatei: <?php echo  implode(' &bull; ', $progressive); ?></p>
-					<?php echo $item['killdate'] ? sprintf('<p><span class="killdate" title="Verfügbar bis %s">Noch <b>%d</b> Stunden verfügbar</span></p>', date('d.m.Y, H:i', $item['killdate']), ($item['killdate'] - time()) / 3600) : ''; ?>
+					<?php echo !empty($item['killdate']) ? sprintf('<p><span class="killdate" title="Verfügbar bis %s">Noch <b>%d</b> Stunden verfügbar</span></p>', date('d.m.Y, H:i', $item['killdate']), ($item['killdate'] - time()) / 3600) : ''; ?>
 
 					<div class="downloads">
 						<a href="javascript:void copyLinks(<?php echo htmlentities(htmlJSON(implode("\n", $downloads) . "\n"), ENT_QUOTES, 'UTF-8'); ?>);">Downloadlinks</a>
@@ -670,7 +743,7 @@ else if($all)
 	$commands = ['failed=0'];
 	foreach($all as $id => $data)
 	{
-		$datetime = $data['datetime'] ? date('Ymd-His - ', $data['datetime']) : '';
+		$datetime = !empty($data['datetime']) ? date('Ymd-His - ', $data['datetime']) : '';
 		$title = sprintf('%s%s.tvthek-%d.mp4', $datetime, preg_replace('/[_]{2,}/', '_', preg_replace('/[^\w\d\p{L} !#$%&\\\'()+,-.;=@\\[\\]^_`{}~]/u', '_', $data['title'])), $id);
 		$commands[] = sprintf('wget --no-verbose --show-progress --no-clobber --output-document=%s %s || failed=1', escapeshellarg($title), escapeshellarg($data['progressive']));
 		$files[] = $data['progressive'];
@@ -680,7 +753,7 @@ else if($all)
 
 ?>
 				<li class="info">
-					<b>Alle Episoden in bester Qualität:</b><br /><br />
+					<b>Alle Episoden dieser Seite in bester Qualität:</b><br /><br />
 					<textarea id="files" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo htmlentities(implode("\n", $files), ENT_QUOTES, 'UTF-8'); ?></textarea>
 					<script> var i = document.getElementById('files'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 					<br /><br />Direkter Downloads mittels Bash und Wget:<br /><br />
