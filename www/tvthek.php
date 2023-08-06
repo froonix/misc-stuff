@@ -7,6 +7,8 @@ if(isset($_GET['source']))
 	exit;
 }
 
+setlocale(LC_CTYPE, 'en_US.UTF-8');
+
 ###################################################################################
 # API-USERNAME & API-PASSWORD: https://github.com/s0faking/plugin.video.orftvthek #
 #  /blob/c75ddb57d1d023f834ea19ab8ec675161a2ae8bd/resources/lib/ServiceApi.py#L40 #
