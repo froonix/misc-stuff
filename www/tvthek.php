@@ -150,7 +150,7 @@ function getEpisodes($id, $page = 1, $limit = API_LIMIT)
 
 	if(!($_ = getItems($data)))
 	{
-		throw new RuntimeException(sprintf('No episodes found: %u (%u)', $id));
+		throw new RuntimeException(sprintf('No episodes found: %u', $id));
 	}
 
 	return array_merge($result, $_);
@@ -470,6 +470,8 @@ try
 }
 catch(Exception $e)
 {
+	error_log('Caught ' . $e);
+
 	$error = sprintf('%s: [%d] %s', get_class($e), $e->getCode(), $e->getMessage());
 }
 
