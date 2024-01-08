@@ -78,6 +78,15 @@ function getEpisode($id, &$gapless = null, &$youth_protection = null, &$data = n
 
 function getYouthProtection($data)
 {
+	if(!empty($data['is_drm_protected']))
+	{
+		return
+		[
+			'active' => true,
+			'type'   => 'DRM PROTECTED',
+		];
+	}
+
 	if(!empty($data['has_youth_protection']))
 	{
 		return
@@ -747,7 +756,7 @@ foreach($result as $item)
 	{
 		$progressive = $subtitles = $downloads = $shell = [];
 
-		if(count($item['progressive']))
+		if(empty($item['youth_protection']['active']) && count($item['progressive']))
 		{
 			foreach($item['progressive'] as $key => $value)
 			{
@@ -803,12 +812,19 @@ foreach($result as $item)
 					<p>Videodatei: <?php echo  implode(' &bull; ', $progressive); ?></p>
 					<?php echo $killdate; ?>
 
+<?php
+
+		if(empty($item['youth_protection']['active']))
+		{
+
+?>
 					<div class="downloads">
 						<a href="javascript:void copyLinks(<?php echo htmlentities(htmlJSON(implode("\n", $downloads) . "\n"), ENT_QUOTES, 'UTF-8'); ?>);">Downloadlinks</a>
 						(<a href="javascript:void prompt(null, <?php echo htmlentities(htmlJSON(sprintf("wget --no-verbose --show-progress --user-agent=%s %s", escapeshellarg(''), implode(' ', array_map('escapeshellarg', $shell)))), ENT_QUOTES, 'UTF-8'); ?>);">Shell</a>)
 					</div>
 <?php
 
+		}
 	}
 
 ?>
