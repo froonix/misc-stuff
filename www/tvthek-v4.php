@@ -460,7 +460,6 @@ try
 			];
 		}
 
-		$lastdescription = null;
 		foreach($data as $key => $value)
 		{
 			$progressive = [];
@@ -506,15 +505,9 @@ try
 				$title = $value['share_subject'];
 			}
 
-			$description = null;
-			if(!empty($value['description']) && $value['description'] !== $lastdescription)
-			{
-				$lastdescription = $description = $value['description'];
-			}
-
 			$result[] =
 			[
-				'description'      => $description,
+				'description'      => !empty($value['description'])     ? $value['description']             : null,
 				'duration'         => isset($value['duration_seconds']) ? $value['duration_seconds']        : null,
 				'datetime'         => isset($value['episode_date'])     ? strtotime($value['episode_date']) : null,
 				'killdate'         => isset($value['killdate'])         ? strtotime($value['killdate'])     : null,
@@ -636,7 +629,7 @@ catch(Exception $e)
 				font-weight: normal;
 			}
 
-			.downloads, .downloads a, .killdate {
+			.downloads, .downloads a, .killdate, .na {
 				color: #555;
 			}
 
@@ -719,6 +712,7 @@ else if($result !== null)
 <?php
 
 $files = [];
+$lastdescription = null;
 foreach($result as $item)
 {
 	if(!empty($item['parent']))
@@ -743,8 +737,9 @@ foreach($result as $item)
 					<a href="<?php echo htmlentities($item['link'], ENT_QUOTES, 'UTF-8') ?>" class="headline"><?php echo htmlentities($item['title'], ENT_QUOTES, 'UTF-8') ?></a>
 <?php
 
-	if($item['description'])
+	if($item['description'] && $item['description'] !== $lastdescription)
 	{
+		$lastdescription = $item['description'];
 
 ?>
 					<p class="description"><?php echo nl2br(htmlentities($item['description'], ENT_QUOTES, 'UTF-8')); ?></p>
@@ -808,8 +803,8 @@ foreach($result as $item)
 					<p>Dauer: <?php echo !empty($item['duration']) ? sprintf('<b>%s</b>', gmdate('H:i:s', $item['duration'])) : '-'; ?></p>
 					<?php if(!$glt || (isset($item['gapless']) && $item['gapless'])) { ?><p>Datum: <?php echo !empty($item['datetime']) ? sprintf('%s', date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } else { echo "\n"; } ?>
 					<?php echo !empty($item['youth_protection']) ? sprintf('<p>Jugendschutz: <span class="youth_protection_%sactive">%s</span></p>', (empty($item['youth_protection']['active']) ? 'in' : ''), htmlentities($item['youth_protection']['type'])) : "\n"; ?>
-					<p>Untertitel: <?php echo implode(' &bull; ', $subtitles); ?></p>
-					<p>Videodatei: <?php echo  implode(' &bull; ', $progressive); ?></p>
+					<p>Untertitel: <?php echo $subtitles ? implode(' &bull; ', $subtitles) : '<span class="na">Keine Untertitel vorhanden.</span>'; ?></p>
+					<p>Videodatei: <?php echo $progressive ? implode(' &bull; ', $progressive) : '<span class="na">Keine Videodateien verfügbar.</span>'; ?></p>
 					<?php echo $killdate; ?>
 
 <?php
