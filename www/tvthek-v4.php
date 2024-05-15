@@ -23,22 +23,26 @@ define('API_BASE',    sprintf('https://%s:%s@%s%s', API_USER, API_PASS, API_HOST
 define('API_CACHE',   300);
 define('API_LIMIT',   20);
 
-// stream_context_create()
-$context = null;
+$curl = curl_init();
+curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+//curl_setopt($curl, CURLOPT_USERAGENT, '...');
+//curl_setopt($curl, CURLOPT_PROXY, '...');
 
 function API($r)
 {
-	global $context;
+	global $curl;
 
 	$c = sprintf('%s/tvthek-%s_%s.json', sys_get_temp_dir(), rawurlencode(API_VERSION), rawurlencode(base64_encode($r)));
 
 	if(!API_CACHE || !file_exists($c) || filemtime($c) < (time() - API_CACHE) || !filesize($c) || ($data = file_get_contents($c)) === false)
 	{
 		$r = sprintf('%s%s', API_BASE, $r);
+		curl_setopt($curl, CURLOPT_URL, $r);
 
-		if(($data = file_get_contents($r, false, $context)) === false)
+		if(($data = curl_exec($curl)) === false)
 		{
-			throw new RuntimeException(sprintf('API request failed: %s', $r));
+			throw new RuntimeException(sprintf('API request failed: %s', curl_error($curl)));
 		}
 
 		if(API_CACHE)
