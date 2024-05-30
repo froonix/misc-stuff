@@ -873,7 +873,7 @@ foreach($result as $item)
 		}
 
 		$killdate = '';
-		if(!empty($item['killdate']))
+		if(!empty($item['killdate']) && (!$glt || !empty($item['gapless'])))
 		{
 			$seconds = $item['killdate'] - time();
 
@@ -893,7 +893,7 @@ foreach($result as $item)
 ?>
 					<br /><br />
 					<p>Dauer: <?php echo !empty($item['duration']) ? sprintf('<b>%s</b>', gmdate('H:i:s', $item['duration'])) : '-'; ?></p>
-					<?php if(!$glt || (isset($item['gapless']) && $item['gapless'])) { ?><p>Datum: <?php echo !empty($item['datetime']) ? sprintf('<a href="?url=/verpasst/%s">%s</a>', date('Y-m-d', $item['datetime']), date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } else { echo "\n"; } ?>
+					<?php if(!$glt || !empty($item['gapless'])) { ?><p>Datum: <?php echo !empty($item['datetime']) ? sprintf('<a href="?url=/verpasst/%s">%s</a>', date('Y-m-d', $item['datetime']), date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } else { echo "\n"; } ?>
 					<?php echo !empty($item['youth_protection']) ? sprintf('<p>Jugendschutz: <span class="youth_protection_%sactive">%s</span></p>', (empty($item['youth_protection']['active']) ? 'in' : ''), htmlentities($item['youth_protection']['type'])) : "\n"; ?>
 					<p>Untertitel: <?php echo $subtitles ? implode(' &bull; ', $subtitles) : '<span class="na">Keine Untertitel vorhanden.</span>'; ?></p>
 					<p>Videodatei: <?php echo $progressive ? implode(' &bull; ', $progressive) : '<span class="na">Keine Videodateien verfügbar.</span>'; ?></p>
