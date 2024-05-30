@@ -63,6 +63,71 @@ function API($r)
 	return $data;
 }
 
+function getSchedule($date = null)
+{
+	$date = !is_null($date) ? $date : date('Y-m-d');
+
+	if(!preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/', $date))
+	{
+		throw new RuntimeException(sprintf('Invalid date: %s', $date));
+	}
+
+	$result = [];
+	$data = API(sprintf('schedule/%s?limit=%u', $date, 1000));
+
+	foreach($data as $value)
+	{
+		$result[] =
+		[
+			'title'       => isset($value['title'])            ? $value['title']                         : null,
+			'genre'       => isset($value['genre_title'])      ? $value['genre_title']                   : null,
+			'description' => isset($value['description'])      ? $value['description']                   : null,
+			'duration'    => isset($value['duration_seconds']) ? $value['duration_seconds']              : null,
+			'datetime'    => isset($value['date'])             ? strtotime($value['date'])               : null,
+			'killdate'    => isset($value['killdate'])         ? strtotime($value['killdate'])           : null,
+			'link'        => isset($value['id'])               ? sprintf('?url=/video/%d', $value['id']) : null,
+			'selection'   => true,
+			'withtime'    => true,
+		];
+	}
+
+	$i = -1;
+	foreach
+	(
+		[
+			'previous' => '← Vorheriger Tag',
+			'next'     => '→ Nächster Tag',
+		]
+		as $key => $value
+	)
+	{
+		$day = strtotime(sprintf('%sT12:00:00+0000 %dday', $date, $i));
+
+		$_ =
+		[
+			'datetime'    => $day,
+			'description' => null,
+			'title'       => sprintf('%s (%s)', $value, gmdate('d.m.Y', $day)),
+			'link'        => sprintf('?url=/verpasst/%s', gmdate('Y-m-d', $day)),
+			'multi'       => true,
+			'selection'   => true,
+		];
+
+		if($i < 0)
+		{
+			array_unshift($result, $_);
+		}
+		else
+		{
+			$result[] = $_;
+		}
+
+		$i *= -1;
+	}
+
+	return $result;
+}
+
 function getEpisode($id, &$gapless = null, &$youth_protection = null, &$data = null)
 {
 	$data = API(sprintf('episode/%u', $id));
@@ -408,6 +473,10 @@ try
 				break;
 			}
 		}
+		else if(preg_match('#/verpasst/([0-9]{4}-[0-9]{2}-[0-9]{2})#', $url, $matches))
+		{
+			$result = getSchedule($matches[1]);
+		}
 	}
 
 	if($episode)
@@ -633,6 +702,10 @@ catch(Exception $e)
 				font-weight: normal;
 			}
 
+			.headline > .date {
+				font-weight: bold;
+			}
+
 			.downloads, .downloads a, .killdate, .na {
 				color: #555;
 			}
@@ -738,7 +811,22 @@ foreach($result as $item)
 
 ?>
 				<li <?php echo $li; ?>>
-					<a href="<?php echo htmlentities($item['link'], ENT_QUOTES, 'UTF-8') ?>" class="headline"><?php echo htmlentities($item['title'], ENT_QUOTES, 'UTF-8') ?></a>
+					<span class="headline">
+<?php
+
+	if(!empty($item['withtime']) && !empty($item['datetime']))
+	{
+		echo "\t\t\t\t\t\t" . sprintf('<span class="date">[<span>%s</span>]</span>', htmlentities(date('d.m.Y, H:i', $item['datetime']), ENT_QUOTES, 'UTF-8')) . "\n";
+	}
+
+	if(isset($item['genre']) && $item['genre'] !== '')
+	{
+		echo "\t\t\t\t\t\t" . sprintf('<span class="genre"><span>%s</span>:</span>', htmlentities($item['genre'], ENT_QUOTES, 'UTF-8')) . "\n";
+	}
+
+?>
+						<a href="<?php echo htmlentities($item['link'], ENT_QUOTES, 'UTF-8') ?>" class="headline"><?php echo htmlentities($item['title'], ENT_QUOTES, 'UTF-8') ?></a>
+					</span>
 <?php
 
 	if($item['description'] && $item['description'] !== $lastdescription)
@@ -805,7 +893,7 @@ foreach($result as $item)
 ?>
 					<br /><br />
 					<p>Dauer: <?php echo !empty($item['duration']) ? sprintf('<b>%s</b>', gmdate('H:i:s', $item['duration'])) : '-'; ?></p>
-					<?php if(!$glt || (isset($item['gapless']) && $item['gapless'])) { ?><p>Datum: <?php echo !empty($item['datetime']) ? sprintf('%s', date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } else { echo "\n"; } ?>
+					<?php if(!$glt || (isset($item['gapless']) && $item['gapless'])) { ?><p>Datum: <?php echo !empty($item['datetime']) ? sprintf('<a href="?url=/verpasst/%s">%s</a>', date('Y-m-d', $item['datetime']), date('d.m.Y, H:i', $item['datetime'])) : '-'; ?></p><?php } else { echo "\n"; } ?>
 					<?php echo !empty($item['youth_protection']) ? sprintf('<p>Jugendschutz: <span class="youth_protection_%sactive">%s</span></p>', (empty($item['youth_protection']['active']) ? 'in' : ''), htmlentities($item['youth_protection']['type'])) : "\n"; ?>
 					<p>Untertitel: <?php echo $subtitles ? implode(' &bull; ', $subtitles) : '<span class="na">Keine Untertitel vorhanden.</span>'; ?></p>
 					<p>Videodatei: <?php echo $progressive ? implode(' &bull; ', $progressive) : '<span class="na">Keine Videodateien verfügbar.</span>'; ?></p>
