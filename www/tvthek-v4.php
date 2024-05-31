@@ -763,7 +763,7 @@ catch(Exception $e)
 	<body>
 		<div id="header">
 			<form action="<?php echo htmlentities($_SERVER['PHP_SELF'], ENT_QUOTES, 'UTF-8'); ?>" method="get">
-				ON bzw. TVthek URL:
+				on.orf.at URL:
 				<input type="text" name="url" class="url" value="<?php echo htmlentities($url, ENT_QUOTES, 'UTF-8'); ?>" />
 				<input type="submit" class="submit" value="Absenden" />
 			</form>
