@@ -23,6 +23,10 @@ define('API_BASE',    sprintf('https://%s:%s@%s%s', API_USER, API_PASS, API_HOST
 define('API_CACHE',   300);
 define('API_LIMIT',   20);
 
+$scheduleHideAD = false;
+$scheduleHideOEGS = false;
+$scheduleHideGenres = [];
+
 $curl = curl_init();
 curl_setopt($curl, CURLOPT_TIMEOUT, 30);
 curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
@@ -65,6 +69,10 @@ function API($r)
 
 function getSchedule($date = null)
 {
+	global $scheduleHideAD;
+	global $scheduleHideOEGS;
+	global $scheduleHideGenres;
+
 	$date = !is_null($date) ? $date : date('Y-m-d');
 
 	if(!preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/', $date))
@@ -77,6 +85,19 @@ function getSchedule($date = null)
 
 	foreach($data as $value)
 	{
+		if($scheduleHideOEGS && !empty($value['is_oegs']))
+		{
+			continue;
+		}
+		else if($scheduleHideAD && (isset($value['title']) && substr($value['title'], 0, 5) === 'AD | '))
+		{
+			continue;
+		}
+		else if($scheduleHideGenres && !empty($value['genre_title']) && in_array($value['genre_title'], $scheduleHideGenres))
+		{
+			continue;
+		}
+
 		$result[] =
 		[
 			'title'       => isset($value['title'])            ? $value['title']                         : null,
@@ -359,12 +380,6 @@ try
 					{
 						$title .= ' - ' . $value['teaser_title'];
 					}
-
-					if(!empty($value['date']))
-					{
-						$_ = strtotime($value['date']);
-						$title .= sprintf(' (vom %s um %s Uhr)', date('d.m.Y', $_), date('H:i', $_));
-					}
 				}
 				else
 				{
@@ -389,6 +404,7 @@ try
 
 				$result[] =
 				[
+					'genre'       => isset($value['genre_title'])      ? $value['genre_title']         : null,
 					'description' => isset($value['description'])      ? $value['description']         : null,
 					'duration'    => isset($value['duration_seconds']) ? $value['duration_seconds']    : null,
 					'datetime'    => isset($value['date'])             ? strtotime($value['date'])     : null,
@@ -397,6 +413,7 @@ try
 					'title'       => $title,
 					'multi'       => $multi,
 					'selection'   => true,
+					'withtime'    => true,
 				];
 			}
 
@@ -520,6 +537,7 @@ try
 			$glt = true;
 			$result[] =
 			[
+				'genre'            => isset($fulldata['genre_title'])      ? $fulldata['genre_title']         : null,
 				'description'      => isset($fulldata['description'])      ? $fulldata['description']         : null,
 				'duration'         => isset($fulldata['duration_seconds']) ? $fulldata['duration_seconds']    : null,
 				'datetime'         => isset($fulldata['date'])             ? strtotime($fulldata['date'])     : null,
@@ -580,6 +598,7 @@ try
 
 			$result[] =
 			[
+				'genre'            => isset($value['genre_title'])      ? $value['genre_title']             : null,
 				'description'      => !empty($value['description'])     ? $value['description']             : null,
 				'duration'         => isset($value['duration_seconds']) ? $value['duration_seconds']        : null,
 				'datetime'         => isset($value['episode_date'])     ? strtotime($value['episode_date']) : null,
@@ -819,7 +838,7 @@ foreach($result as $item)
 		echo "\t\t\t\t\t\t" . sprintf('<span class="date">[<span>%s</span>]</span>', htmlentities(date('d.m.Y, H:i', $item['datetime']), ENT_QUOTES, 'UTF-8')) . "\n";
 	}
 
-	if(isset($item['genre']) && $item['genre'] !== '')
+	if(isset($item['genre']) && $item['genre'] !== '' && (!$glt || !empty($item['gapless'])))
 	{
 		echo "\t\t\t\t\t\t" . sprintf('<span class="genre"><span>%s</span>:</span>', htmlentities($item['genre'], ENT_QUOTES, 'UTF-8')) . "\n";
 	}
