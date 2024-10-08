@@ -333,6 +333,9 @@ function exception_error_handler($severity, $message, $file, $line)
 set_error_handler('exception_error_handler');
 error_reporting(-1); ini_set('display_errors', 1);
 
+$sTitle  = null;
+$pTitle  = '[ON] ';
+$dTitle  = sprintf('ORF TVthek API %s', API_VERSION);
 $glt     = false;
 $error   = null;
 $matches = null;
@@ -384,6 +387,11 @@ try
 				else
 				{
 					$title = $value['share_subject'];
+				}
+
+				if(is_null($sTitle) && !empty($value['profile_title']))
+				{
+					$sTitle = $value['profile_title'];
 				}
 
 				if(isset($value['id']))
@@ -490,8 +498,9 @@ try
 				break;
 			}
 		}
-		else if(preg_match('#/verpasst/([0-9]{4}-[0-9]{2}-[0-9]{2})#', $url, $matches))
+		else if(preg_match('#/verpasst/(([0-9]{4})-([0-9]{2})-([0-9]{2}))#', $url, $matches))
 		{
+			$sTitle = vsprintf('%5$02d.%4$02d.%3$04d', $matches);
 			$result = getSchedule($matches[1]);
 		}
 	}
@@ -534,7 +543,8 @@ try
 				$title = $fulldata['share_subject'];
 			}
 
-			$glt = true;
+			$sTitle   = $title;
+			$glt      = true;
 			$result[] =
 			[
 				'genre'            => isset($fulldata['genre_title'])      ? $fulldata['genre_title']         : null,
@@ -596,6 +606,11 @@ try
 				$title = $value['share_subject'];
 			}
 
+			if(is_null($sTitle))
+			{
+				$sTitle = $title;
+			}
+
 			$result[] =
 			[
 				'genre'            => isset($value['genre_title'])      ? $value['genre_title']             : null,
@@ -624,7 +639,7 @@ catch(Exception $e)
 <html lang="de">
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-		<title>ORF TVthek API <?php echo htmlentities(API_VERSION, ENT_QUOTES, 'UTF-8'); ?></title>
+		<title><?php echo htmlentities(!is_null($sTitle) ? ($pTitle . $sTitle) : $dTitle, ENT_QUOTES, 'UTF-8'); ?></title>
 		<style>
 
 			* {
