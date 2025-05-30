@@ -23,6 +23,7 @@ define('API_BASE',    sprintf('https://%s:%s@%s%s', API_USER, API_PASS, API_HOST
 define('API_CACHE',   300);
 define('API_LIMIT',   20);
 
+$hideTrailer = false;
 $scheduleHideAD = false;
 $scheduleHideOEGS = false;
 $scheduleHideGenres = [];
@@ -69,6 +70,7 @@ function API($r)
 
 function getSchedule($date = null)
 {
+	global $hideTrailer;
 	global $scheduleHideAD;
 	global $scheduleHideOEGS;
 	global $scheduleHideGenres;
@@ -94,6 +96,10 @@ function getSchedule($date = null)
 			continue;
 		}
 		else if($scheduleHideGenres && !empty($value['genre_title']) && in_array($value['genre_title'], $scheduleHideGenres))
+		{
+			continue;
+		}
+		else if($hideTrailer && isset($value['title']) && substr($value['title'], 0, 9) === 'Trailer: ')
 		{
 			continue;
 		}
@@ -207,7 +213,7 @@ function getGapless($data)
 			{
 				if(isset($download['quality_key'], $download['src']))
 				{
-					$gapless['progressive'][$download['quality_key']] = $download['src'];
+					$gapless['progressive'][$download['quality_key']] = prepareDownloadLink($download['src']);
 				}
 			}
 
@@ -217,7 +223,7 @@ function getGapless($data)
 				{
 					if(substr($key, -5) === '_file' && isset($value['public_urls']['reference']['url']))
 					{
-						$gapless['subtitles'][substr($key, 0, -5)] = $value['public_urls']['reference']['url'];
+						$gapless['subtitles'][substr($key, 0, -5)] = prepareDownloadLink($value['public_urls']['reference']['url']);
 					}
 				}
 			}
@@ -313,6 +319,16 @@ function getItems($data, $return = [])
 	return $return;
 }
 
+function prepareDownloadLink($value)
+{
+	if(substr($value, 0, 7) === 'http://')
+	{
+		$value = 'https://' . substr($value, 7);
+	}
+
+	return $value;
+}
+
 function htmlJSON($value, $options = 0, $depth = 512)
 {
 	$json = json_encode($value, $options | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS, $depth);
@@ -389,6 +405,11 @@ try
 					$title = $value['share_subject'];
 				}
 
+				if($hideTrailer && substr($value['title'], 0, 9) === 'Trailer: ')
+				{
+					continue;
+				}
+
 				if(is_null($sTitle) && !empty($value['profile_title']))
 				{
 					$sTitle = $value['profile_title'];
@@ -456,7 +477,7 @@ try
 						{
 							$all[$id] =
 							[
-								'progressive' => array_pop($gapless['progressive']),
+								'progressive' => prepareDownloadLink(array_pop($gapless['progressive'])),
 								'datetime'    => isset($fulldata['date']) ? strtotime($fulldata['date']) : null,
 								'title'       => $title,
 							];
@@ -483,7 +504,7 @@ try
 							{
 								$all[$id] =
 								[
-									'progressive' => array_pop($progressive),
+									'progressive' => prepareDownloadLink(array_pop($progressive)),
 									'datetime'    => isset($fulldata['date']) ? strtotime($fulldata['date']) : null,
 									'title'       => $title,
 								];
@@ -570,7 +591,7 @@ try
 				{
 					if(isset($_value['quality'], $_value['src'], $_value['delivery']) && $_value['delivery'] === 'progressive')
 					{
-						$progressive[$_value['quality']] = $_value['src'];
+						$progressive[$_value['quality']] = prepareDownloadLink($_value['src']);
 					}
 				}
 			}
@@ -582,7 +603,7 @@ try
 				{
 					if(isset($_value['src'], $_value['type'], $_value['lang']) && $_value['lang'] === 'de-AT')
 					{
-						$subtitles[$_value['type']] = $_value['src'];
+						$subtitles[$_value['type']] = prepareDownloadLink($_value['src']);
 					}
 				}
 			}
@@ -963,7 +984,7 @@ if(count($files) > 1)
 					<textarea id="files" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo htmlentities(implode("\n", $files), ENT_QUOTES, 'UTF-8'); ?></textarea>
 					<script> var i = document.getElementById('files'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 					<br /><br />Direkter Downloads mittels Bash und Wget:<br /><br />
-					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()">tvthek=( <?php echo htmlentities(implode(' ', array_map('escapeshellarg', $files)), ENT_QUOTES, 'UTF-8'); ?> ); for key in ${!tvthek[@]}; do wget --no-verbose --show-progress -O "$(printf %02d "$(( key + 1 ))").mp4" "${tvthek[$key]}" || break; done</textarea>
+					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()">tvthek=( <?php echo htmlentities(implode(' ', array_map('escapeshellarg', $files)), ENT_QUOTES, 'UTF-8'); ?> ); for key in ${!tvthek[@]}; do wget --no-verbose --show-progress --user-agent="" -O "$(printf %02d "$(( key + 1 ))").mp4" "${tvthek[$key]}" || break; done</textarea>
 					<script> var i = document.getElementById('console'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 					<?php if($glt) { ?><br /><br /><i>Als bessere Alternative gibt es das sogenannte Gapless-Video, siehe erster (grüner) Eintrag.</i><?php } ?>
 				</li>
@@ -978,7 +999,7 @@ else if($all)
 	{
 		$datetime = !empty($data['datetime']) ? date('Ymd-His - ', $data['datetime']) : '';
 		$title = sprintf('%s%s.tvthek-%d.mp4', $datetime, preg_replace('/[_]{2,}/', '_', preg_replace('/[^\w\d\p{L} !#$%&\\\'()+,-.;=@\\[\\]^_`{}~]/u', '_', $data['title'])), $id);
-		$commands[] = sprintf('wget --no-verbose --show-progress --no-clobber --output-document=%s %s || failed=1', escapeshellarg($title), escapeshellarg($data['progressive']));
+		$commands[] = sprintf('wget --no-verbose --show-progress --user-agent="" --no-clobber --output-document=%s %s || failed=1', escapeshellarg($title), escapeshellarg($data['progressive']));
 		$files[] = $data['progressive'];
 	}
 
