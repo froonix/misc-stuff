@@ -24,9 +24,9 @@ define('API_CACHE',   300);
 define('API_LIMIT',   20);
 define('API_NOLIMIT', 1000);
 
+$hideOEGS = false;
 $hideTrailer = false;
 $scheduleHideAD = false;
-$scheduleHideOEGS = false;
 $scheduleHideGenres = [];
 
 $curl = curl_init();
@@ -71,9 +71,9 @@ function API($r)
 
 function getSchedule($date = null)
 {
+	global $hideOEGS;
 	global $hideTrailer;
 	global $scheduleHideAD;
-	global $scheduleHideOEGS;
 	global $scheduleHideGenres;
 
 	$date = !is_null($date) ? $date : date('Y-m-d');
@@ -88,7 +88,7 @@ function getSchedule($date = null)
 
 	foreach($data as $value)
 	{
-		if($scheduleHideOEGS && !empty($value['is_oegs']))
+		if($hideOEGS && !empty($value['is_oegs']))
 		{
 			continue;
 		}
@@ -110,7 +110,6 @@ function getSchedule($date = null)
 			'genreID'     => isset($value['genre_id'])         ? (int) $value['genre_id']                : null,
 			'genreTitle'  => isset($value['genre_title'])      ? $value['genre_title']                   : null,
 			'title'       => isset($value['title'])            ? $value['title']                         : null,
-			'genre'       => isset($value['genre_title'])      ? $value['genre_title']                   : null,
 			'description' => isset($value['description'])      ? $value['description']                   : null,
 			'duration'    => isset($value['duration_seconds']) ? (int) $value['duration_seconds']        : null,
 			'datetime'    => isset($value['date'])             ? strtotime($value['date'])               : null,
@@ -590,6 +589,11 @@ try
 			$hasMultiElement = false;
 			foreach($results as $key => $value)
 			{
+				if($hideOEGS && !empty($value['oegs']))
+				{
+					continue;
+				}
+
 				if(!empty($value['multi']))
 				{
 					$link = isset($value['link']) ? $value['link'] : null;
@@ -603,12 +607,15 @@ try
 
 				$result[] =
 				[
-					'genreTitle'  => isset($value['genre_title']) ? $value['genre_title']    : null,
-					'title'       => isset($value['title'])       ? $value['title']          : null,
-					'description' => isset($value['description']) ? $value['description']    : null,
+#					'genreTitle'  => isset($value['genre_title'])          ? $value['genre_title']                : null,
+					'title'       => isset($value['title'])                ? $value['title']                      : null,
+					'description' => isset($value['description'])          ? $value['description']                : null,
+					'datetime'    => isset($value['updated_at'])           ? strtotime($value['updated_at'])      : null,
+					'count'       => isset($value['online_episode_count']) ? (int) $value['online_episode_count'] : null,
 					'link'        => $link,
 					'multi'       => $multi,
 					'selection'   => true,
+					'withtime'    => false,
 				];
 			}
 
@@ -616,7 +623,7 @@ try
 			{
 				usort($result, function($a, $b)
 				{
-					return strcasecmp($a['title'], $b['title']);
+					return strnatcasecmp($a['title'], $b['title']);
 				});
 			}
 		}
@@ -864,6 +871,14 @@ catch(Exception $e)
 				font-weight: bold;
 			}
 
+			.count {
+				font-weight: lighter;
+			}
+
+			.count span {
+				font-weight: bold;
+			}
+
 			.genre a {
 				font-weight: normal;
 				color: black;
@@ -996,10 +1011,18 @@ foreach($result as $item)
 
 ?>
 						<a href="<?php echo htmlentities($item['link'], ENT_QUOTES, 'UTF-8') ?>" class="headline"><?php echo htmlentities($item['title'], ENT_QUOTES, 'UTF-8') ?></a>
+<?php
+
+	if(!empty($item['count']) && $item['count'] > 0)
+	{
+		echo "\t\t\t\t\t\t" . sprintf('<span class="count">(<span>%d</span> %s)</span>', $item['count'], $item['count'] === 1 ? 'Episode' : 'Episoden') . "\n";
+	}
+
+?>
 					</span>
 <?php
 
-	if($item['description'] && $item['description'] !== $lastdescription)
+	if($item['description'] && (!empty($item['selection']) || $item['description'] !== $lastdescription))
 	{
 		$lastdescription = $item['description'];
 
@@ -1098,7 +1121,7 @@ if(count($files) > 1)
 					<b>Alle Videodateien dieser Episode in bester Qualität:</b><br /><br />
 					<textarea id="files" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo htmlentities(implode("\n", $files), ENT_QUOTES, 'UTF-8'); ?></textarea>
 					<script> var i = document.getElementById('files'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
-					<br /><br />Direkter Downloads mittels Bash und Wget:<br /><br />
+					<br /><br />Direkter Download mittels Bash und Wget:<br /><br />
 					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()">tvthek=( <?php echo htmlentities(implode(' ', array_map('escapeshellarg', $files)), ENT_QUOTES, 'UTF-8'); ?> ); for key in ${!tvthek[@]}; do wget --no-verbose --show-progress --user-agent="" -O "$(printf %02d "$(( key + 1 ))").mp4" "${tvthek[$key]}" || break; done</textarea>
 					<script> var i = document.getElementById('console'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 					<?php if($glt) { ?><br /><br /><i>Als bessere Alternative gibt es das sogenannte Gapless-Video, siehe erster (grüner) Eintrag.</i><?php } ?>
@@ -1125,7 +1148,7 @@ else if($all)
 					<b>Alle Episoden dieser Seite in bester Qualität:</b><br /><br />
 					<textarea id="files" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo htmlentities(implode("\n", $files), ENT_QUOTES, 'UTF-8'); ?></textarea>
 					<script> var i = document.getElementById('files'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
-					<br /><br />Direkter Downloads mittels Bash und Wget:<br /><br />
+					<br /><br />Direkter Download mittels Bash und Wget:<br /><br />
 					<textarea id="console" cols="10" rows="3" style="width: 100%; height: 100%; cursor: pointer;" readonly="readonly" onclick="this.focus(); this.select()"><?php echo htmlentities(implode("; \\\n", $commands), ENT_QUOTES, 'UTF-8'); ?></textarea>
 					<script> var i = document.getElementById('console'); if(i.scrollHeight > i.clientHeight) { i.style.height = i.scrollHeight + 'px'; } </script> <!-- https://stackoverflow.com/a/17259991/3747688 -->
 				</li>
