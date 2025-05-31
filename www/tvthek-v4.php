@@ -22,6 +22,7 @@ define('API_PATH',    sprintf('/api/%s/', API_VERSION));
 define('API_BASE',    sprintf('https://%s:%s@%s%s', API_USER, API_PASS, API_HOST, API_PATH));
 define('API_CACHE',   300);
 define('API_LIMIT',   20);
+define('API_NOLIMIT', 1000);
 
 $hideTrailer = false;
 $scheduleHideAD = false;
@@ -106,10 +107,12 @@ function getSchedule($date = null)
 
 		$result[] =
 		[
+			'genreID'     => isset($value['genre_id'])         ? (int) $value['genre_id']                : null,
+			'genreTitle'  => isset($value['genre_title'])      ? $value['genre_title']                   : null,
 			'title'       => isset($value['title'])            ? $value['title']                         : null,
 			'genre'       => isset($value['genre_title'])      ? $value['genre_title']                   : null,
 			'description' => isset($value['description'])      ? $value['description']                   : null,
-			'duration'    => isset($value['duration_seconds']) ? $value['duration_seconds']              : null,
+			'duration'    => isset($value['duration_seconds']) ? (int) $value['duration_seconds']        : null,
 			'datetime'    => isset($value['date'])             ? strtotime($value['date'])               : null,
 			'killdate'    => isset($value['killdate'])         ? strtotime($value['killdate'])           : null,
 			'link'        => isset($value['id'])               ? sprintf('?url=/video/%d', $value['id']) : null,
@@ -253,6 +256,50 @@ function getSegments($data, $return = [])
 	}
 
 	return $return;
+}
+
+function getGenre($id, $page = 1, $limit = API_LIMIT)
+{
+	$data = API(sprintf('genre/%u/profiles?page=' . $page . '&limit=' . $limit, $id));
+	$result = [];
+
+	if(!empty($data['pages']) && $data['pages'] > 1)
+	{
+		foreach
+		(
+			[
+				'previous' => '← Vorherige Seite',
+				'next'     => '→ Nächste Seite',
+			]
+			as $key => $value
+		)
+		{
+			if(!empty($data['_links'][$key]['href']) && ($_ = parse_url($data['_links'][$key]['href'], PHP_URL_QUERY)))
+			{
+				$args = null;
+				parse_str($_, $args);
+
+				if(!empty($args['page']))
+				{
+					$result[] =
+					[
+						'datetime'    => time(),
+						'description' => sprintf('Es gibt viele Sendereihen, aufgeteilt auf insgesamt %d Seiten.', $data['pages']),
+						'link'        => sprintf('?url=/kategorie/%u&page=%d&limit=%d', $id, $args['page'], $limit),
+						'title'       => sprintf('%s (%d)', $value, $args['page']),
+						'multi'       => true,
+					];
+				}
+			}
+		}
+	}
+
+	if(!($_ = getItems($data)))
+	{
+		throw new RuntimeException(sprintf('No profiles found: %u', $id));
+	}
+
+	return array_merge($result, $_);
 }
 
 function getEpisodes($id, $page = 1, $limit = API_LIMIT)
@@ -433,11 +480,12 @@ try
 
 				$result[] =
 				[
-					'genre'       => isset($value['genre_title'])      ? $value['genre_title']         : null,
-					'description' => isset($value['description'])      ? $value['description']         : null,
-					'duration'    => isset($value['duration_seconds']) ? $value['duration_seconds']    : null,
-					'datetime'    => isset($value['date'])             ? strtotime($value['date'])     : null,
-					'killdate'    => isset($value['killdate'])         ? strtotime($value['killdate']) : null,
+					'genreID'     => isset($value['genre_id'])         ? (int) $value['genre_id']         : null,
+					'genreTitle'  => isset($value['genre_title'])      ? $value['genre_title']            : null,
+					'description' => isset($value['description'])      ? $value['description']            : null,
+					'duration'    => isset($value['duration_seconds']) ? (int) $value['duration_seconds'] : null,
+					'datetime'    => isset($value['date'])             ? strtotime($value['date'])        : null,
+					'killdate'    => isset($value['killdate'])         ? strtotime($value['killdate'])    : null,
 					'link'        => $link,
 					'title'       => $title,
 					'multi'       => $multi,
@@ -519,6 +567,59 @@ try
 				break;
 			}
 		}
+		else if(preg_match('#/kategorie/([0-9]+)(/.+)?$#', $url, $matches))
+		{
+			$genreID = (int) $matches[1];
+			$genreData = API(sprintf('genre/%u', $genreID));
+
+			if(isset($genreData['title']))
+			{
+				$sTitle = sprintf('Kategorie %s', $genreData['title']);
+			}
+
+			$page = isset($_GET['page']) ? abs((int) $_GET['page']) : null;
+			$limit = isset($_GET['limit']) ? abs((int) $_GET['limit']) : null;
+			$results = getGenre
+			(
+				$genreID,
+				$page ? $page : 1,
+				$limit ? $limit : API_NOLIMIT
+			);
+
+			$result = [];
+			$hasMultiElement = false;
+			foreach($results as $key => $value)
+			{
+				if(!empty($value['multi']))
+				{
+					$link = isset($value['link']) ? $value['link'] : null;
+					$multi = $hasMultiElement = true;
+				}
+				else
+				{
+					$link = isset($value['id']) ? sprintf('?url=/sendereihe/%u', $value['id']) : null;
+					$multi = false;
+				}
+
+				$result[] =
+				[
+					'genreTitle'  => isset($value['genre_title']) ? $value['genre_title']    : null,
+					'title'       => isset($value['title'])       ? $value['title']          : null,
+					'description' => isset($value['description']) ? $value['description']    : null,
+					'link'        => $link,
+					'multi'       => $multi,
+					'selection'   => true,
+				];
+			}
+
+			if(!$hasMultiElement)
+			{
+				usort($result, function($a, $b)
+				{
+					return strcasecmp($a['title'], $b['title']);
+				});
+			}
+		}
 		else if(preg_match('#/verpasst/(([0-9]{4})-([0-9]{2})-([0-9]{2}))#', $url, $matches))
 		{
 			$sTitle = vsprintf('%5$02d.%4$02d.%3$04d', $matches);
@@ -568,12 +669,13 @@ try
 			$glt      = true;
 			$result[] =
 			[
-				'genre'            => isset($fulldata['genre_title'])      ? $fulldata['genre_title']         : null,
-				'description'      => isset($fulldata['description'])      ? $fulldata['description']         : null,
-				'duration'         => isset($fulldata['duration_seconds']) ? $fulldata['duration_seconds']    : null,
-				'datetime'         => isset($fulldata['date'])             ? strtotime($fulldata['date'])     : null,
-				'killdate'         => isset($fulldata['killdate'])         ? strtotime($fulldata['killdate']) : null,
-				'link'             => isset($fulldata['share_body'])       ? $fulldata['share_body']          : null,
+				'genreID'          => isset($value['genre_id'])            ? (int) $value['genre_id']            : null,
+				'genreTitle'       => isset($fulldata['genre_title'])      ? $fulldata['genre_title']            : null,
+				'description'      => isset($fulldata['description'])      ? $fulldata['description']            : null,
+				'duration'         => isset($fulldata['duration_seconds']) ? (int) $fulldata['duration_seconds'] : null,
+				'datetime'         => isset($fulldata['date'])             ? strtotime($fulldata['date'])        : null,
+				'killdate'         => isset($fulldata['killdate'])         ? strtotime($fulldata['killdate'])    : null,
+				'link'             => isset($fulldata['share_body'])       ? $fulldata['share_body']             : null,
 				'youth_protection' => $youth_protection,
 				'progressive'      => $gapless['progressive'],
 				'subtitles'        => $gapless['subtitles'],
@@ -634,9 +736,10 @@ try
 
 			$result[] =
 			[
-				'genre'            => isset($value['genre_title'])      ? $value['genre_title']             : null,
+				'genreID'          => isset($value['genre_id'])         ? (int) $value['genre_id']          : null,
+				'genreTitle'       => isset($value['genre_title'])      ? $value['genre_title']             : null,
 				'description'      => !empty($value['description'])     ? $value['description']             : null,
-				'duration'         => isset($value['duration_seconds']) ? $value['duration_seconds']        : null,
+				'duration'         => isset($value['duration_seconds']) ? (int) $value['duration_seconds']  : null,
 				'datetime'         => isset($value['episode_date'])     ? strtotime($value['episode_date']) : null,
 				'killdate'         => isset($value['killdate'])         ? strtotime($value['killdate'])     : null,
 				'link'             => isset($value['share_body'])       ? $value['share_body']              : null,
@@ -761,11 +864,16 @@ catch(Exception $e)
 				font-weight: bold;
 			}
 
+			.genre a {
+				font-weight: normal;
+				color: black;
+			}
+
 			.downloads, .downloads a, .killdate, .na {
 				color: #555;
 			}
 
-			.downloads a, .killdate {
+			.downloads a, .genre a, .killdate {
 				border-bottom: 1px dotted;
 			}
 
@@ -874,9 +982,16 @@ foreach($result as $item)
 		echo "\t\t\t\t\t\t" . sprintf('<span class="date">[<span>%s</span>]</span>', htmlentities(date('d.m.Y, H:i', $item['datetime']), ENT_QUOTES, 'UTF-8')) . "\n";
 	}
 
-	if(isset($item['genre']) && $item['genre'] !== '' && (!$glt || !empty($item['gapless'])))
+	if(isset($item['genreTitle']) && $item['genreTitle'] !== '' && (!$glt || !empty($item['gapless'])))
 	{
-		echo "\t\t\t\t\t\t" . sprintf('<span class="genre"><span>%s</span>:</span>', htmlentities($item['genre'], ENT_QUOTES, 'UTF-8')) . "\n";
+		$_ = htmlentities($item['genreTitle'], ENT_QUOTES, 'UTF-8');
+
+		if(isset($item['genreID']))
+		{
+			$_ = sprintf('<a href="?url=/kategorie/%u">%s</a>', $item['genreID'], $_);
+		}
+
+		echo "\t\t\t\t\t\t" . sprintf('<span class="genre"><span>%s</span>:</span>', $_) . "\n";
 	}
 
 ?>
